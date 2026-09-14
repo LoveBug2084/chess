@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4-Player Plus Chess — Moveable</title>
+  <style>
+    :root {
+      --square-size: 40px;
+      --board: 14;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 14px 12px 10px 12px;
+      flex: 0 0 auto;
+      width: 100%;
+    }
+
+    .turn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(15px, 2.4vh, 22px);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background: rgba(255,255,255,0.06);
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .turn .swatch {
+      width: 1.1em; height: 1.1em;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      flex: 0 0 auto;
+    }
+
+    .board-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 6px;
+      overflow: hidden;
+    }
+
+    .board {
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+      cursor: pointer;
+    }
+
+    .square.light { background: #fff8e1; }
+    .square.dark  { background: #a66c40; }
+
+    /* Hover highlight: only while a piece is selected (destination picking) */
+    .square.legal-dest:hover {
+      box-shadow: inset 0 0 0 3px #4d6bfe;
+    }
+
+    /* Selection outline (the square you clicked) */
+    .square.selected::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 0 4px #4d6bfe;
+      pointer-events: none;
+    }
+
+    /* Legal destination tint */
+    .square.legal-dest::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(77,107,254,0.28);
+      pointer-events: none;
+    }
+
+    /* Make sure the hover ring sits above the destination tint */
+    .square.legal-dest:hover::after {
+      background: rgba(77,107,254,0.18);
+    }
+
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="turn">
+      <span class="swatch" id="turnSwatch"></span>
+      <span id="turnText">South to move</span>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="chessBoard"></div>
+  </div>
+
+  <script>
+    const PIECE_COLS = ['pawn','knight','bishop','rook','queen','king'];
+
+    const COLOUR_ROWS = [
+      'black', 'white', 'dark-grey', 'light-grey', 'pink', 'red',
+      'orange', 'yellow', 'green', 'blue', 'light-blue', 'purple'
+    ];
+
+    const COLOUR_HEX = {
+      'black':'#000000', 'white':'#ffffff', 'dark-grey':'#989898',
+      'light-grey':'#cbcbcb', 'pink':'#fe98cb', 'red':'#fe0000',
+      'orange':'#fe9832', 'yellow':'#fefe32', 'green':'#00cb32',
+      'blue':'#3232fe', 'light-blue':'#65cbfe', 'purple':'#9865fe'
+    };
+
+    const C0 = 3, C1 = 10, N = 14;
+
+    const EXCLUSIVE_GROUPS = [ ['white', 'light-grey', 'dark-grey'] ];
+
+    function pickFourColours() {
+      const pool = COLOUR_ROWS.slice();
+      const picked = [];
+      let guard = 0;
+      while (picked.length < 4) {
+        if (++guard > 10000) break;
+        const i = Math.floor(Math.random() * pool.length);
+        const choice = pool[i];
+        const clashes = EXCLUSIVE_GROUPS.some(g =>
+          g.includes(choice) && g.some(c => picked.includes(c))
+        );
+        if (clashes) continue;
+        pool.splice(i, 1);
+        picked.push(choice);
+      }
+      return picked;
+    }
+
+    const [southColour, northColour, westColour, eastColour] = pickFourColours();
+    const colourIndex = c => COLOUR_ROWS.indexOf(c);
+
+    const PLAYERS = [
+      { key: 'south', label: 'South', colour: southColour },
+      { key: 'west',  label: 'West',  colour: westColour  },
+      { key: 'north', label: 'North', colour: northColour },
+      { key: 'east',  label: 'East',  colour: eastColour  }
+    ];
+
+    let turnIndex = 0;
+    let selectedSquare = null;
+    const boardState = {};
+
+    function currentPlayer() { return PLAYERS[turnIndex]; }
+
+    function isBoard(r, c) {
+      const inCols = c >= C0 && c <= C1;
+      const inRows = r >= C0 && r <= C1;
+      if (inCols && inRows) return true;
+      if ((r < C0 || r > C1) && inCols) return true;
+      if ((c < C0 || c > C1) && inRows) return true;
+      return false;
+    }
+
+    function fitBoard() {
+      const wrap = document.querySelector('.board-wrap');
+      const availW = Math.max(0, wrap.clientWidth  - 12);
+      const availH = Math.max(0, wrap.clientHeight - 12);
+      const size = Math.max(1, Math.floor(Math.min(availW, availH) / N));
+      document.documentElement.style.setProperty('--square-size', size + 'px');
+    }
+
+    function renderTurn() {
+      const p = currentPlayer();
+      document.getElementById('turnText').textContent = `${p.label} to move`;
+      const sw = document.getElementById('turnSwatch');
+      sw.style.background = COLOUR_HEX[p.colour];
+      sw.style.borderColor =
+        (p.colour === 'black' || p.colour === 'dark-grey') ? '#fff' : '#333';
+    }
+
+    function nextTurn() {
+      turnIndex = (turnIndex + 1) % PLAYERS.length;
+      renderTurn();
+    }
+
+    const backRank = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+    const pawnRank = Array(8).fill('pawn');
+
+    const layout = {
+      south: { colour: southColour, cells: [
+        ...Array.from({length:8},(_,i)=>[13, C0+i]),
+        ...Array.from({length:8},(_,i)=>[12, C0+i])
+      ]},
+      north: { colour: northColour, cells: [
+        ...Array.from({length:8},(_,i)=>[0, C0+i]),
+        ...Array.from({length:8},(_,i)=>[1, C0+i])
+      ]},
+      west: { colour: westColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 0]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 1])
+      ]},
+      east: { colour: eastColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 13]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 12])
+      ]}
+    };
+
+    const board = document.getElementById('chessBoard');
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!isBoard(r, c)) continue;
+        const sq = document.createElement('div');
+        sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.style.left = `calc(var(--square-size) * ${c})`;
+        sq.style.top  = `calc(var(--square-size) * ${r})`;
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+        sq.addEventListener('click', () => onSquareClick(sq));
+        board.appendChild(sq);
+      }
+    }
+
+    function squareEl(r, c) {
+      return board.querySelector(`.square[data-row="${r}"][data-col="${c}"]`);
+    }
+
+    function makePieceEl(pieceType, colour) {
+      const el = document.createElement('div');
+      el.className = 'piece';
+      el.dataset.piece = pieceType;
+      el.dataset.colour = colour;
+      el.style.backgroundSize = '600% 1200%';
+      el.style.backgroundPosition =
+        `${PIECE_COLS.indexOf(pieceType) * (100 / 5)}% ${colourIndex(colour) * (100 / 11)}%`;
+      return el;
+    }
+
+    function placePiece(r, c, pieceType, colour) {
+      const sq = squareEl(r, c);
+      if (!sq) return;
+      const el = makePieceEl(pieceType, colour);
+      sq.appendChild(el);
+      boardState[r + ',' + c] = { pieceType, colour, el };
+    }
+
+    for (const side in layout) {
+      const { colour, cells } = layout[side];
+      cells.forEach((rc, i) => {
+        const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+        placePiece(rc[0], rc[1], type, colour);
+      });
+    }
+
+    function clearHighlights() {
+      board.querySelectorAll('.square.selected, .square.legal-dest')
+        .forEach(s => s.classList.remove('selected', 'legal-dest'));
+    }
+
+    function deselect() {
+      clearHighlights();
+      selectedSquare = null;
+    }
+
+    function showDestinations(fromSq) {
+      board.querySelectorAll('.square').forEach(sq => {
+        if (sq !== fromSq) sq.classList.add('legal-dest');
+      });
+    }
+
+    function onSquareClick(sq) {
+      const r = +sq.dataset.row, c = +sq.dataset.col;
+      const key = r + ',' + c;
+      const occupant = boardState[key];
+
+      if (!selectedSquare) {
+        if (occupant && occupant.colour === currentPlayer().colour) {
+          selectedSquare = sq;
+          sq.classList.add('selected');
+          showDestinations(sq);
+        }
+        return;
+      }
+
+      if (sq === selectedSquare) { deselect(); return; }
+
+      if (occupant && occupant.colour === currentPlayer().colour) {
+        deselect();
+        selectedSquare = sq;
+        sq.classList.add('selected');
+        showDestinations(sq);
+        return;
+      }
+
+      performMove(selectedSquare, sq);
+    }
+
+    function performMove(fromSq, toSq) {
+      const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
+      const tr = +toSq.dataset.row,   tc = +toSq.dataset.col;
+      const fromKey = fr + ',' + fc;
+      const toKey   = tr + ',' + tc;
+
+      const moving = boardState[fromKey];
+      if (!moving) { deselect(); return; }
+
+      const target = boardState[toKey];
+      if (target) {
+        target.el.remove();
+        delete boardState[toKey];
+      }
+
+      toSq.appendChild(moving.el);
+      boardState[toKey] = moving;
+      delete boardState[fromKey];
+
+      deselect();
+      nextTurn();
+    }
+
+    const sprite = new Image();
+    sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
+    sprite.src = 'img/sprites.png';
+
+    renderTurn();
+    fitBoard();
+    window.addEventListener('resize', fitBoard);
+    window.addEventListener('load', fitBoard);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitBoard).observe(document.querySelector('.board-wrap'));
+    }
+  </script>
+
+</body>
+</html>

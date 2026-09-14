@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4-Player Plus Chess — Moveable</title>
+  <style>
+    :root {
+      --square-size: 40px;   /* set at runtime by fitBoard() */
+      --board: 14;           /* 14x14 bounding box; the four 3x3 corners are empty */
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;      /* everything must fit; no scrollbars */
+    }
+
+    header {
+      text-align: center;
+      padding: 14px 12px 10px 12px;
+      flex: 0 0 auto;        /* fixed height; board takes the rest */
+      width: 100%;
+    }
+
+    .turn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(15px, 2.4vh, 22px);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background: rgba(255,255,255,0.06);
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .turn .swatch {
+      width: 1.1em; height: 1.1em;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      flex: 0 0 auto;
+    }
+
+    .board-wrap {
+      flex: 1 1 auto;        /* fills whatever space the header leaves */
+      min-height: 0;         /* allow the flex child to shrink */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 6px;
+      overflow: hidden;      /* safety: board can never paint over the text */
+    }
+
+    .board {
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    /* LAYER 1: the board square (light/dark background) */
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+      cursor: pointer;
+    }
+
+    .square.light { background: #fff8e1; }
+    .square.dark  { background: #a66c40; }
+
+    /* LAYER 2: colour highlight overlay — ABOVE the square, BELOW the piece.
+       Colour is set inline via the --overlay-color custom property.
+       Hidden unless the square is .selected or .hover-dest. */
+    .square .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;            /* above the square background, below the piece */
+      background: var(--overlay-color, transparent);
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Origin square of a piece in hand: full colour wash */
+    .square.selected .overlay { display: block; }
+
+    /* Hovered destination square: full colour wash (solid, same as origin) */
+    .square.hover-dest .overlay { display: block; }
+
+    /* LAYER 3: the chess sprite — always on top of its square */
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;  /* squares handle all clicks */
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="turn">
+      <span class="swatch" id="turnSwatch"></span>
+      <span id="turnText">South to move</span>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="chessBoard"></div>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------ *
+     *  CONFIG
+     * ------------------------------------------------------------------ */
+    const PIECE_COLS = ['pawn','knight','bishop','rook','queen','king']; // sprite x-order
+
+    // Sprite rows, top to bottom (0 = top row)
+    const COLOUR_ROWS = [
+      'black', 'white', 'dark-grey', 'light-grey', 'pink', 'red',
+      'orange', 'yellow', 'green', 'blue', 'light-blue', 'purple'
+    ];
+
+    // Real hex values sampled from sprites.png (used for swatch + overlays)
+    const COLOUR_HEX = {
+      'black':'#000000', 'white':'#ffffff', 'dark-grey':'#989898',
+      'light-grey':'#cbcbcb', 'pink':'#fe98cb', 'red':'#fe0000',
+      'orange':'#fe9832', 'yellow':'#fefe32', 'green':'#00cb32',
+      'blue':'#3232fe', 'light-blue':'#65cbfe', 'purple':'#9865fe'
+    };
+
+    // Turn a colour key like 'dark-grey' into a display name 'Dark grey'
+    function colourLabel(key) {
+      return key
+        .split('-')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+    }
+
+    const C0 = 3, C1 = 10, N = 14;   // centre block spans rows/cols 3..10
+
+    // At most ONE colour from each group may be chosen for the four players.
+    const EXCLUSIVE_GROUPS = [ ['white', 'light-grey', 'dark-grey'] ];
+
+    function pickFourColours() {
+      const pool = COLOUR_ROWS.slice();
+      const picked = [];
+      let guard = 0;
+      while (picked.length < 4) {
+        if (++guard > 10000) break;         // safety: never hang
+        const i = Math.floor(Math.random() * pool.length);
+        const choice = pool[i];
+        const clashes = EXCLUSIVE_GROUPS.some(g =>
+          g.includes(choice) && g.some(c => picked.includes(c))
+        );
+        if (clashes) continue;
+        pool.splice(i, 1);
+        picked.push(choice);
+      }
+      return picked;
+    }
+
+    const [southColour, northColour, westColour, eastColour] = pickFourColours();
+    const colourIndex = c => COLOUR_ROWS.indexOf(c);
+
+    // Players in clockwise turn order.
+    // The 'key' is the side: it identifies the army, the arm it starts in,
+    // and its fixed forward/backward orientation.
+    const PLAYERS = [
+      { key: 'south', label: 'South', colour: southColour },
+      { key: 'west',  label: 'West',  colour: westColour  },
+      { key: 'north', label: 'North', colour: northColour },
+      { key: 'east',  label: 'East',  colour: eastColour  }
+    ];
+
+    /* ------------------------------------------------------------------ *
+     *  GAME STATE
+     * ------------------------------------------------------------------ */
+    let turnIndex = 0;
+    let selectedSquare = null;    // origin square of the piece currently in hand
+    let heldPiece = null;         // the { pieceType, colour, side, el } in hand
+
+    // boardState: "row,col" -> { pieceType, colour, side, hasMoved, el }
+    // 'side' is stored on each piece so movement rules can read the
+    // piece's orientation directly, with no lookup.
+    // 'hasMoved' is set on a pawn's first move (used for the 2-square advance).
+    // NOTE: while a piece is in hand, its entry is removed from boardState,
+    // and heldPiece holds it instead. It is re-added on drop.
+    const boardState = {};
+
+    function currentPlayer() { return PLAYERS[turnIndex]; }
+
+    /* ------------------------------------------------------------------ *
+     *  BOARD GEOMETRY
+     * ------------------------------------------------------------------ */
+    function isBoard(r, c) {
+      const inCols = c >= C0 && c <= C1;
+      const inRows = r >= C0 && r <= C1;
+      if (inCols && inRows) return true;                 // centre 8x8
+      if ((r < C0 || r > C1) && inCols) return true;     // top/bottom arms
+      if ((c < C0 || c > C1) && inRows) return true;     // left/right arms
+      return false;
+    }
+
+    // Is a square inside the central 8x8?
+    function inCentre(r, c) {
+      return r >= C0 && r <= C1 && c >= C0 && c <= C1;
+    }
+
+    // Which arm is a square in? 'N','S','W','E', or null if in the centre.
+    function armOf(r, c) {
+      if (inCentre(r, c)) return null;
+      if (r < C0) return 'N';
+      if (r > C1) return 'S';
+      if (c < C0) return 'W';
+      if (c > C1) return 'E';
+      return null; // not on the board
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  PAWN RULES
+     *
+     *  Colour is resolved BEFORE this logic runs: isLegalDestination()
+     *  rejects any destination holding a friendly piece, so by the time a
+     *  destination reaches here it is either EMPTY or holds an ENEMY.
+     *  The pawn therefore only needs to test occupancy, never colour.
+     *
+     *  MOVEMENT (per zone):
+     *   - In an arm: forward or backward along the arm's axis
+     *     (the arm owner's toward/away-from-centre direction).
+     *   - In the centre: forward or sideways, never backward.
+     *   - First move: a pawn that has never moved may advance 2 squares
+     *     forward (from its arm's outer rank, so only forward is possible).
+     *
+     *  CAPTURE (diagonals only, and only the diagonals that flank an
+     *  allowed movement direction):
+     *   - In the centre: the TWO forward diagonals.
+     *       (sideways has no diagonal; backward is disallowed)
+     *   - In an arm: ALL FOUR diagonals.
+     *       (both forward and backward movement are allowed there)
+     *
+     *  A non-diagonal move may only land on an EMPTY square.
+     *  A diagonal capture may only land on an OCCUPIED square (an enemy).
+     *  Blocking (the square passed over by a 2-square move) is not yet checked.
+     * ------------------------------------------------------------------ */
+    // Per-side orientation, used for the CENTRE rule.
+    // forward  = one step toward the centre of the board
+    // backward = the forbidden direction
+    const SIDE_ORIENTATION = {
+      south: { forward: [-1, 0], sideways: [[0, -1], [0, 1]] }, // up
+      north: { forward: [ 1, 0], sideways: [[0, -1], [0, 1]] }, // down
+      west:  { forward: [ 0, 1], sideways: [[-1, 0], [1, 0]] }, // right
+      east:  { forward: [ 0,-1], sideways: [[-1, 0], [1, 0]] }  // left
+    };
+
+    // The arm-owner's forward direction (one step toward the centre).
+    const ARM_FORWARD = {
+      N: [ 1, 0],   // north arm: toward centre = down
+      S: [-1, 0],   // south arm: toward centre = up
+      W: [ 0, 1],   // west arm:  toward centre = right
+      E: [ 0,-1]    // east arm:  toward centre = left
+    };
+
+    // The four diagonal directions (used for captures in an arm).
+    const ALL_DIAGONALS = [[-1,-1], [-1,1], [1,-1], [1,1]];
+
+    // The two forward diagonal directions for a given side (centre captures).
+    function centreCaptureDiagonals(side) {
+      const o = SIDE_ORIENTATION[side];
+      if (!o) return [];
+      const [fr, fc] = o.forward;
+      return o.sideways.map(([sr, sc]) => [fr + sr, fc + sc]);
+    }
+
+    // Evaluate a pawn move. Returns { legal, capture }.
+    // occupant is the piece (if any) currently on the destination square.
+    // It is never a friendly piece (see note above).
+    function evaluatePawnMove(side, hasMoved, fr, fc, tr, tc, occupant) {
+      const fail = { legal: false, capture: false };
+      if (!isBoard(tr, tc)) return fail;
+
+      const dr = tr - fr, dc = tc - fc;
+      const adr = Math.abs(dr), adc = Math.abs(dc);
+      const isDiagonal = (adr === 1 && adc === 1);
+      const dist = adr + adc;
+
+      // Any occupant here is an enemy (friendlies were filtered out already).
+      const occupied = !!occupant;
+
+      if (!inCentre(fr, fc)) {
+        // IN AN ARM: use the arm's axis (its owner's forward/backward).
+        const arm = armOf(fr, fc);
+        const vertical   = (arm === 'N' || arm === 'S');
+        const horizontal = (arm === 'W' || arm === 'E');
+        if (!vertical && !horizontal) return fail;
+
+        // Diagonal capture: any of the four diagonals, onto an occupied square.
+        if (isDiagonal) {
+          const isDiag = ALL_DIAGONALS.some(([a, b]) => dr === a && dc === b);
+          if (isDiag && occupied) return { legal: true, capture: true };
+          return fail;
+        }
+
+        // One square forward or backward along the arm's axis, onto empty.
+        if (dist === 1) {
+          const straight =
+            (vertical   && dc === 0 && (dr === -1 || dr === 1)) ||
+            (horizontal && dr === 0 && (dc === -1 || dc === 1));
+          if (straight && !occupant) return { legal: true, capture: false };
+          return fail;
+        }
+
+        // First move: two squares FORWARD only, onto an empty square.
+        if (dist === 2 && !hasMoved) {
+          const f = ARM_FORWARD[arm];
+          if (dr === f[0] * 2 && dc === f[1] * 2 && !occupant) {
+            return { legal: true, capture: false };
+          }
+        }
+        return fail;
+      }
+
+      // IN THE CENTRE: use the pawn's own side's forward + sideways.
+      const o = SIDE_ORIENTATION[side];
+      if (!o) return fail;
+
+      // Diagonal capture: only the two forward diagonals, onto an occupied square.
+      if (isDiagonal) {
+        const diags = centreCaptureDiagonals(side);
+        const isForwardDiag = diags.some(([a, b]) => dr === a && dc === b);
+        if (isForwardDiag && occupied) return { legal: true, capture: true };
+        return fail;
+      }
+
+      // One square forward or sideways, onto an empty square.
+      if (dist === 1) {
+        const isForward  = (dr === o.forward[0]  && dc === o.forward[1]);
+        const isSideways = o.sideways.some(([sr, sc]) => dr === sr && dc === sc);
+        if ((isForward || isSideways) && !occupant) {
+          return { legal: true, capture: false };
+        }
+      }
+      // (A pawn in the centre has necessarily already moved, so no 2-square
+      //  advance is possible there — this is unreachable by the rules.)
+      return fail;
+    }
+
+    // Is a move legal for the piece currently in hand?
+    //
+    // PAWNS use their own movement/capture rules (evaluatePawnMove).
+    // ALL OTHER PIECES are still free-move for now, EXCEPT that no piece
+    // may land on a square occupied by a piece of its OWN colour.
+    function isLegalDestination(fromSq, toSq) {
+      if (!heldPiece) return false;
+
+      const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
+      const occupant = boardState[tr + ',' + tc];
+
+      // A piece may never land on a friendly piece (applies to every piece).
+      // After this check, any remaining occupant is an enemy.
+      if (occupant && occupant.colour === heldPiece.colour) return false;
+
+      // Pawns follow their full movement rules.
+      if (heldPiece.pieceType === 'pawn') {
+        const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
+        return evaluatePawnMove(
+          heldPiece.side, heldPiece.hasMoved,
+          fr, fc, tr, tc, occupant
+        ).legal;
+      }
+
+      // Non-pawns: free move (any distance / direction) for now.
+      return true;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  RESPONSIVE SIZING
+     * ------------------------------------------------------------------ */
+    function fitBoard() {
+      const wrap = document.querySelector('.board-wrap');
+      const availW = Math.max(0, wrap.clientWidth  - 12);
+      const availH = Math.max(0, wrap.clientHeight - 12);
+      const size = Math.max(1, Math.floor(Math.min(availW, availH) / N));
+      document.documentElement.style.setProperty('--square-size', size + 'px');
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  TURN INDICATOR
+     * ------------------------------------------------------------------ */
+    function renderTurn() {
+      const p = currentPlayer();
+      document.getElementById('turnText').textContent = `${colourLabel(p.colour)} to move`;
+      const sw = document.getElementById('turnSwatch');
+      sw.style.background = COLOUR_HEX[p.colour];
+      sw.style.borderColor =
+        (p.colour === 'black' || p.colour === 'dark-grey') ? '#fff' : '#333';
+    }
+
+    function nextTurn() {
+      turnIndex = (turnIndex + 1) % PLAYERS.length;
+      renderTurn();
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  STARTING LAYOUT
+     * ------------------------------------------------------------------ */
+    const backRank = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+    const pawnRank = Array(8).fill('pawn');
+
+    const layout = {
+      south: { colour: southColour, cells: [
+        ...Array.from({length:8},(_,i)=>[13, C0+i]),
+        ...Array.from({length:8},(_,i)=>[12, C0+i])
+      ]},
+      north: { colour: northColour, cells: [
+        ...Array.from({length:8},(_,i)=>[0, C0+i]),
+        ...Array.from({length:8},(_,i)=>[1, C0+i])
+      ]},
+      west: { colour: westColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 0]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 1])
+      ]},
+      east: { colour: eastColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 13]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 12])
+      ]}
+    };
+
+    /* ------------------------------------------------------------------ *
+     *  BUILD DOM
+     * ------------------------------------------------------------------ */
+    const board = document.getElementById('chessBoard');
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!isBoard(r, c)) continue;
+        const sq = document.createElement('div');
+        sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.style.left = `calc(var(--square-size) * ${c})`;
+        sq.style.top  = `calc(var(--square-size) * ${r})`;
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'overlay';
+        sq.appendChild(overlay);
+
+        sq.addEventListener('click', () => onSquareClick(sq));
+        sq.addEventListener('mouseenter', () => onSquareEnter(sq));
+        sq.addEventListener('mouseleave', () => onSquareLeave(sq));
+
+        board.appendChild(sq);
+      }
+    }
+
+    // Suppress the context menu while a piece is in hand (right-click = cancel)
+    board.addEventListener('contextmenu', e => {
+      if (heldPiece) { e.preventDefault(); cancelMove(); }
+    });
+
+    // Keyboard cancel
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && heldPiece) cancelMove();
+    });
+
+    function squareEl(r, c) {
+      return board.querySelector(`.square[data-row="${r}"][data-col="${c}"]`);
+    }
+
+    function makePieceEl(pieceType, colour) {
+      const el = document.createElement('div');
+      el.className = 'piece';
+      el.dataset.piece = pieceType;
+      el.dataset.colour = colour;
+      el.style.backgroundSize = '600% 1200%';
+      el.style.backgroundPosition =
+        `${PIECE_COLS.indexOf(pieceType) * (100 / 5)}% ${colourIndex(colour) * (100 / 11)}%`;
+      return el;
+    }
+
+    // Place a piece belonging to `side`, with `colour`, at (r,c).
+    // The side is recorded on the piece so movement rules need no lookup.
+    // Pawns start with hasMoved = false (they may still make a 2-square move).
+    function placePiece(r, c, pieceType, colour, side) {
+      const sq = squareEl(r, c);
+      if (!sq) return;
+      const el = makePieceEl(pieceType, colour);
+      sq.appendChild(el);
+      boardState[r + ',' + c] = {
+        pieceType,
+        colour,
+        side,
+        hasMoved: false,
+        el
+      };
+    }
+
+    for (const side in layout) {
+      const { colour, cells } = layout[side];
+      cells.forEach((rc, i) => {
+        const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+        placePiece(rc[0], rc[1], type, colour, side);
+      });
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  HIGHLIGHTS
+     * ------------------------------------------------------------------ */
+    function setOverlayColour(sq, colourKey) {
+      sq.style.setProperty('--overlay-color', COLOUR_HEX[colourKey]);
+    }
+
+    function clearHighlights() {
+      board.querySelectorAll('.square.selected, .square.hover-dest')
+        .forEach(s => s.classList.remove('selected', 'hover-dest'));
+    }
+
+    function removeHeldFromBoard() {
+      if (heldPiece && heldPiece.el.parentNode) {
+        heldPiece.el.parentNode.removeChild(heldPiece.el);
+      }
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  MOVE IN HAND
+     * ------------------------------------------------------------------ */
+    function pickUp(sq, piece) {
+      const key = sq.dataset.row + ',' + sq.dataset.col;
+
+      delete boardState[key];
+      if (piece.el.parentNode) piece.el.parentNode.removeChild(piece.el);
+
+      heldPiece = piece;
+      selectedSquare = sq;
+      setOverlayColour(sq, piece.colour);
+      sq.classList.add('selected');
+
+      previewIn(sq);
+    }
+
+    // Draw the held piece into the given square (removing it from any other).
+    function previewIn(sq) {
+      if (!heldPiece) return;
+      removeHeldFromBoard();
+      sq.appendChild(heldPiece.el);
+    }
+
+    function cancelMove() {
+      if (!heldPiece || !selectedSquare) return;
+      removeHeldFromBoard();
+      selectedSquare.appendChild(heldPiece.el);
+      boardState[selectedSquare.dataset.row + ',' + selectedSquare.dataset.col] = heldPiece;
+
+      clearHighlights();
+      heldPiece = null;
+      selectedSquare = null;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  CLICK HANDLING / MOVEMENT
+     * ------------------------------------------------------------------ */
+    function onSquareClick(sq) {
+      const r = +sq.dataset.row, c = +sq.dataset.col;
+
+      if (heldPiece) {
+        if (sq === selectedSquare) { cancelMove(); return; }
+        if (!isLegalDestination(selectedSquare, sq)) return; // illegal: ignore
+        dropOn(sq);
+        return;
+      }
+
+      const occupant = boardState[r + ',' + c];
+      if (occupant && occupant.colour === currentPlayer().colour) {
+        pickUp(sq, occupant);
+      }
+    }
+
+    function dropOn(toSq) {
+      if (!heldPiece || !selectedSquare) return;
+      const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
+      const toKey = tr + ',' + tc;
+
+      // Capture: a friendly occupant can never reach here (it is filtered
+      // out in isLegalDestination), so any occupant is an enemy piece.
+      const target = boardState[toKey];
+      if (target) {
+        target.el.remove();
+        delete boardState[toKey];
+      }
+
+      // Mark the pawn as having moved (disables any future 2-square advance).
+      if (heldPiece.pieceType === 'pawn') heldPiece.hasMoved = true;
+
+      previewIn(toSq);
+      boardState[toKey] = heldPiece;
+
+      clearHighlights();
+      heldPiece = null;
+      selectedSquare = null;
+
+      nextTurn();
+    }
+
+    // Moving the mouse over a square previews the held piece there —
+    // but only if the destination is legal for the held piece.
+    function onSquareEnter(sq) {
+      if (!heldPiece) return;
+      if (!isLegalDestination(selectedSquare, sq)) return; // illegal: no preview
+      previewIn(sq);
+      if (sq !== selectedSquare) {
+        setOverlayColour(sq, heldPiece.colour);
+        sq.classList.add('hover-dest');
+      }
+    }
+
+    function onSquareLeave(sq) {
+      sq.classList.remove('hover-dest');
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  SPRITE SANITY CHECK + INIT
+     * ------------------------------------------------------------------ */
+    const sprite = new Image();
+    sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
+    sprite.src = 'img/sprites.png';
+
+    renderTurn();
+    fitBoard();
+    window.addEventListener('resize', fitBoard);
+    window.addEventListener('load', fitBoard);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitBoard).observe(document.querySelector('.board-wrap'));
+    }
+  </script>
+
+</body>
+</html>

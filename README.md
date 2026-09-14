@@ -1,4 +1,4 @@
-# 4-Player Plus Chess
+# 4 Player Chess
 
 A browser-based four-player chess variant played on a plus-shaped board. Each of
 the four armies starts on one arm of the cross and fights a free-for-all: every
@@ -87,6 +87,19 @@ arm, so the only direction available is forward. The two-square advance is
 **Capture:** pawns capture **diagonally only**. A non-diagonal move must land
 on an empty square.
 
+**Promotion:** a pawn that reaches the **outermost rank of any arm other than
+its own** is promoted. The promoted piece is **the piece that originally stood
+on that back-rank square** — so landing on the 1st or 8th outer square yields a
+rook, the 2nd or 7th a knight, the 3rd or 6th a bishop, and the 4th a queen.
+The **king square promotes to a queen**. The promoted piece takes the **pawn's
+colour**. A pawn may legally stand on its own arm's outer rank (having moved
+backward into it) but does **not** promote there.
+
+**En passant:** ⬜ **Not yet implemented.** Planned rule: when a pawn makes a
+two-square first move and lands beside an enemy pawn, that enemy pawn may
+capture it *as if* it had moved only one square, on the immediately following
+move only.
+
 ---
 
 ## Implementation Status
@@ -101,8 +114,9 @@ on an empty square.
 | Pawn captures (diagonal only) | ✅ Done |
 | Pawn two-square first move | ✅ Done |
 | Pawn two-square blocking | ✅ Done |
+| Pawn promotion | ✅ Done |
 | No friendly landing (all pieces) | ✅ Done |
-| Pawn promotion | ⬜ Not yet |
+| En passant | ⬜ Not yet |
 | Non-pawn movement rules | ⬜ Not yet (free-move) |
 | King capture / elimination | ⬜ Not yet |
 | Win condition / scoring | ⬜ Not yet |
@@ -238,10 +252,17 @@ Replaced inversion with **luminance-based** text colour (Rec. 601 threshold at
 **Pawn two-square blocking**: the square passed over by a two-square advance
 must be empty.
 
+### 027
+
+**Pawn promotion.** A pawn reaching the outermost rank of any arm other than
+its own is promoted to the piece that originally occupied that back-rank
+square (king square → queen), in the pawn's own colour. En passant added to
+the README as a planned (not yet implemented) rule.
+
 ---
 
 ## Running
 
 1. Place `sprites.png` in an `img/` folder next to the HTML file.
 2. Open the HTML file in any modern browser.
-3. No server or build step is required.
+3. No server or build

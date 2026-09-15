@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4 Player Chess</title>
+  <style>
+    :root {
+      --square-size: 40px;   /* set at runtime by fitBoard() */
+      --board: 14;           /* 14x14 bounding box; the four 3x3 corners are empty */
+      --gutter: 22px;        /* width of the left/right row-number strips */
+      --strip: 22px;         /* height of the top/bottom column-letter strips */
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;      /* everything must fit; no scrollbars */
+    }
+
+    header {
+      text-align: center;
+      padding: 14px 12px 10px 12px;
+      flex: 0 0 auto;        /* fixed height; board takes the rest */
+      width: 100%;
+    }
+
+    /* The pill is filled with the current player's colour. Its text uses
+       black or white depending on the colour's perceived luminance
+       (see readableTextColour), so it is always legible. */
+    .turn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(15px, 2.4vh, 22px);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .board-wrap {
+      flex: 1 1 auto;        /* fills whatever space the header leaves */
+      min-height: 0;         /* allow the flex child to shrink */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 6px;
+      overflow: hidden;      /* safety: board can never paint over the text */
+    }
+
+    /* The overall "board + coordinate labels" frame. A 3x3 CSS grid:
+         [ gutter |  top strip  | gutter ]
+         [ left   |    board    | right  ]
+         [ gutter | bottom strip| gutter ]
+       The row strips use the same --square-size height as the squares, and
+       the column strips use the same --square-size width, so every label
+       lines up exactly with its row/column. */
+    .board-frame {
+      display: grid;
+      grid-template-columns: var(--gutter) auto var(--gutter);
+      grid-template-rows: var(--strip) auto var(--strip);
+      flex: 0 0 auto;
+    }
+
+    /* Column-letter strips (A..N). Each letter cell is one square wide. */
+    .strip-cols {
+      display: flex;
+      grid-column: 2;
+    }
+
+    .strip-cols.top    { grid-row: 1; }
+    .strip-cols.bottom { grid-row: 3; }
+
+    .col-label {
+      width: var(--square-size);
+      height: var(--strip);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(9px, 1.3vh, 13px);
+      font-weight: 600;
+      color: #9a9ab0;
+      user-select: none;
+    }
+
+    /* Row-number strips (1..14). Each number cell is one square tall. */
+    .strip-rows {
+      display: flex;
+      flex-direction: column;
+      grid-row: 2;
+    }
+
+    .strip-rows.left  { grid-column: 1; }
+    .strip-rows.right { grid-column: 3; }
+
+    .row-label {
+      width: var(--gutter);
+      height: var(--square-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(9px, 1.3vh, 13px);
+      font-weight: 600;
+      color: #9a9ab0;
+      user-select: none;
+    }
+
+    .board {
+      grid-column: 2;
+      grid-row: 2;
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+    }
+
+    /* LAYER 1: the board square (light/dark background) */
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+      cursor: pointer;
+    }
+
+    .square.light { background: #cccccc; }
+    .square.dark  { background: #666666; }
+
+    /* DEFAULT ARM TINT (layer 1b): a permanent 30% wash of the arm owner's
+       colour, drawn OVER the square's own light/dark colour so the board
+       pattern still reads through. Applied only to squares outside the
+       centre. Sits below the move overlay (z-index 1) and the piece (2). */
+    .square.arm-tint::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;            /* above the square colour, below overlay/piece */
+      background: var(--tint-color, transparent);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* LAYER 2: colour highlight overlay — ABOVE the square, BELOW the piece.
+       Colour is set inline via the --overlay-color custom property.
+       Hidden unless the square is .selected or .hover-dest.
+       This is the TEMPORARY move highlight at 30%. */
+    .square .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;            /* above the square background, below the piece */
+      background: var(--overlay-color, transparent);
+      opacity: 0.3;
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Highlight origin square of a piece in hand */
+    .square.selected .overlay { display: block; }
+
+    /* Highlight hovered destination square */
+    .square.hover-dest .overlay { display: block; }
+
+    /* LAYER 3: the chess sprite — always on top of its square */
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;  /* squares handle all clicks */
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="turn" id="turnPill">
+      <span id="turnText">South to move</span>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board-frame">
+      <div class="strip-cols top"    id="colsTop"></div>
+      <div class="strip-rows left"   id="rowsLeft"></div>
+      <div class="board"             id="chessBoard"></div>
+      <div class="strip-rows right"  id="rowsRight"></div>
+      <div class="strip-cols bottom" id="colsBottom"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------ *
+     *  CONFIG
+     * ------------------------------------------------------------------ */
+    const PIECE_COLS = ['pawn','knight','bishop','rook','queen','king']; // sprite x-order
+
+    // Sprite rows, top to bottom (0 = top row) for the TRIMMED 10-row sheet.
+    // (white/light-grey/dark-grey's grey rows were removed from the image;
+    //  the sheet is now 10 rows tall.)
+    const COLOUR_ROWS = [
+      'black', 'white', 'pink', 'red', 'orange',
+      'yellow', 'green', 'blue', 'light-blue', 'purple'
+    ];
+
+    // Real hex values sampled from sprites.png (used for swatch + overlays)
+    const COLOUR_HEX = {
+      'black':'#000000', 'white':'#ffffff', 'pink':'#fe98cb', 'red':'#fe0000',
+      'orange':'#fe9832', 'yellow':'#fefe32', 'green':'#00cb32',
+      'blue':'#3232fe', 'light-blue':'#65cbfe', 'purple':'#9865fe'
+    };
+
+    // Perceived luminance (Rec. 601). Returns a value 0-255.
+    function luminance(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      const r = (n >> 16) & 0xff;
+      const g = (n >> 8) & 0xff;
+      const b = n & 0xff;
+      return r * 0.3 + g * 0.59 + b * 0.11;
+    }
+
+    // Black or white text, whichever contrasts with the given background.
+    function readableTextColour(hex) {
+      return luminance(hex) < 128 ? '#ffffff' : '#000000';
+    }
+
+    // Turn a colour key like 'light-blue' into a display name 'Light blue'
+    function colourLabel(key) {
+      return key
+        .split('-')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+    }
+
+    const C0 = 3, C1 = 10, N = 14;   // centre block spans rows/cols 3..10
+
+    function pickFourColours() {
+      const pool = COLOUR_ROWS.slice();
+      const picked = [];
+      while (picked.length < 4) {
+        const i = Math.floor(Math.random() * pool.length);
+        picked.push(pool.splice(i, 1)[0]);
+      }
+      return picked;
+    }
+
+    const [southColour, northColour, westColour, eastColour] = pickFourColours();
+    const colourIndex = c => COLOUR_ROWS.indexOf(c);
+
+    // Players in clockwise turn order.
+    // The 'key' is the side: it identifies the army, the arm it starts in,
+    // and its fixed forward/backward orientation.
+    const PLAYERS = [
+      { key: 'south', label: 'South', colour: southColour },
+      { key: 'west',  label: 'West',  colour: westColour  },
+      { key: 'north', label: 'North', colour: northColour },
+      { key: 'east',  label: 'East',  colour: eastColour  }
+    ];
+
+    // Hex colour of the player who owns a given arm letter ('N'/'S'/'W'/'E').
+    function armOwnerColour(arm) {
+      if (arm === 'N') return COLOUR_HEX[northColour];
+      if (arm === 'S') return COLOUR_HEX[southColour];
+      if (arm === 'W') return COLOUR_HEX[westColour];
+      if (arm === 'E') return COLOUR_HEX[eastColour];
+      return null;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  GAME STATE
+     * ------------------------------------------------------------------ */
+    let turnIndex = 0;
+    let selectedSquare = null;    // origin square of the piece currently in hand
+    let heldPiece = null;         // the { pieceType, colour, side, el } in hand
+
+    // EN PASSANT: records the opportunity created by the immediately
+    // preceding move. Null when no en-passant capture is available.
+    //
+    // Shape when active:
+    //   { r, c,        // the SKIPPED square (where the capturing pawn lands)
+    //     pawnR, pawnC // the square of the ENEMY PAWN that just moved two
+    //                  // squares — i.e. the pawn that gets captured, which
+    //                  // is the DESTINATION of the two-square move
+    //   }
+    //
+    // Set by dropOn() after a pawn makes a two-square first move that lands
+    // perpendicular-adjacent to an enemy pawn; cleared by any other move.
+    let enPassantTarget = null;
+
+    // boardState: "row,col" -> { pieceType, colour, side, hasMoved, el }
+    // 'side' is stored on each piece so movement rules can read the
+    // piece's orientation directly, with no lookup.
+    // 'hasMoved' is set on a pawn's first move (used for the 2-square advance).
+    // NOTE: while a piece is in hand, its entry is removed from boardState,
+    // and heldPiece holds it instead. It is re-added on drop.
+    const boardState = {};
+
+    function currentPlayer() { return PLAYERS[turnIndex]; }
+
+    /* ------------------------------------------------------------------ *
+     *  BOARD GEOMETRY
+     * ------------------------------------------------------------------ */
+    function isBoard(r, c) {
+      const inCols = c >= C0 && c <= C1;
+      const inRows = r >= C0 && r <= C1;
+      if (inCols && inRows) return true;                 // centre 8x8
+      if ((r < C0 || r > C1) && inCols) return true;     // top/bottom arms
+      if ((c < C0 || c > C1) && inRows) return true;     // left/right arms
+      return false;
+    }
+
+    // Is a square inside the central 8x8?
+    function inCentre(r, c) {
+      return r >= C0 && r <= C1 && c >= C0 && c <= C1;
+    }
+
+    // Which arm is a square in? 'N','S','W','E', or null if in the centre.
+    function armOf(r, c) {
+      if (inCentre(r, c)) return null;
+      if (r < C0) return 'N';
+      if (r > C1) return 'S';
+      if (c < C0) return 'W';
+      if (c > C1) return 'E';
+      return null; // not on the board
+    }
+
+    // The arm letter that each side's army starts in.
+    const HOME_ARM = { north: 'N', south: 'S', west: 'W', east: 'E' };
+
+    // Is (r,c) on the outermost rank of an arm?
+    function isOuterRank(r, c) {
+      return r === 0 || r === N - 1 || c === 0 || c === N - 1;
+    }
+
+    // Does a pawn of the given side promote at (r,c)?
+    // Rule: outermost rank of ANY arm other than the pawn's own home arm.
+    // (A pawn can legally stand on its own arm's outer rank by moving
+    //  backward, but it does NOT promote there.)
+    function isPromotionSquare(side, r, c) {
+      if (!isOuterRank(r, c)) return false;
+      const arm = armOf(r, c);
+      if (!arm) return false;
+      if (arm === HOME_ARM[side]) return false;
+      return true;
+    }
+
+    // What piece does a pawn promote to at (r,c)?
+    // The promoted piece is whatever piece originally stood on that
+    // back-rank square, EXCEPT the king square, which becomes a queen.
+    //
+    // Back rank (outermost 8 squares of every arm, in board order):
+    //   rook, knight, bishop, queen, king, bishop, knight, rook
+    // The king (index 4) is substituted with queen.
+    const BACK_RANK = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+
+    function promotionPieceFor(r, c) {
+      // Index 0..7 along the outer rank of the arm.
+      let idx;
+      if (r === 0)        idx = c - C0;          // north arm, top row
+      else if (r === N-1) idx = c - C0;          // south arm, bottom row
+      else if (c === 0)   idx = r - C0;          // west arm, left col
+      else if (c === N-1) idx = r - C0;          // east arm, right col
+      else return null;
+
+      if (idx < 0 || idx > 7) return null;
+      const type = BACK_RANK[idx];
+      // The king's original square promotes to a queen.
+      return type === 'king' ? 'queen' : type;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  PAWN RULES
+     *
+     *  Colour is resolved BEFORE this logic runs: isLegalDestination()
+     *  rejects any destination holding a friendly piece, so by the time a
+     *  destination reaches here it is either EMPTY or holds an ENEMY.
+     *  The pawn therefore only needs to test occupancy, never colour.
+     *
+     *  MOVEMENT (per zone):
+     *   - In an arm: forward or backward along the arm's axis
+     *     (the arm owner's toward/away-from-centre direction).
+     *   - In the centre: forward or sideways, never backward.
+     *   - First move: a pawn that has never moved may advance 2 squares
+     *     forward (from its arm's outer rank, so only forward is possible).
+     *     The 2-square advance is BLOCKED if the square it passes over
+     *     (or its destination) is occupied.
+     *
+     *  CAPTURE (diagonals only, and only the diagonals that flank an
+     *  allowed movement direction):
+     *   - In the centre: the TWO forward diagonals.
+     *       (sideways has no diagonal; backward is disallowed)
+     *   - In an arm: ALL FOUR diagonals.
+     *       (both forward and backward movement are allowed there)
+     *
+     *  A non-diagonal move may only land on an EMPTY square.
+     *  A diagonal capture may only land on an OCCUPIED square (an enemy),
+     *  OR on the en-passant skipped square (see evaluatePawnMove).
+     *
+     *  EN PASSANT:
+     *   When an enemy pawn has just made a two-square first move and now
+     *   sits perpendicular-adjacent to this pawn's destination, this pawn
+     *   may capture it by moving diagonally onto the SKIPPED square. The
+     *   captured pawn sits beside the destination, not on it.
+     * ------------------------------------------------------------------ */
+    // Per-side orientation, used for the CENTRE rule.
+    // forward  = one step toward the centre of the board
+    // backward = the forbidden direction
+    const SIDE_ORIENTATION = {
+      south: { forward: [-1, 0], sideways: [[0, -1], [0, 1]] }, // up
+      north: { forward: [ 1, 0], sideways: [[0, -1], [0, 1]] }, // down
+      west:  { forward: [ 0, 1], sideways: [[-1, 0], [1, 0]] }, // right
+      east:  { forward: [ 0,-1], sideways: [[-1, 0], [1, 0]] }  // left
+    };
+
+    // The arm-owner's forward direction (one step toward the centre).
+    const ARM_FORWARD = {
+      N: [ 1, 0],   // north arm: toward centre = down
+      S: [-1, 0],   // south arm: toward centre = up
+      W: [ 0, 1],   // west arm:  toward centre = right
+      E: [ 0,-1]    // east arm:  toward centre = left
+    };
+
+    // The four diagonal directions (used for captures in an arm).
+    const ALL_DIAGONALS = [[-1,-1], [-1,1], [1,-1], [1,1]];
+
+    // The two forward diagonal directions for a given side (centre captures).
+    function centreCaptureDiagonals(side) {
+      const o = SIDE_ORIENTATION[side];
+      if (!o) return [];
+      const [fr, fc] = o.forward;
+      return o.sideways.map(([sr, sc]) => [fr + sr, fc + sc]);
+    }
+
+    // Is this a legal en-passant capture onto (tr,tc)?
+    // The destination must be exactly the recorded skipped square, and the
+    // move must be a one-square diagonal (the pawn steps sideways-forward
+    // onto the square the two-square pawn passed over).
+    function isEnPassantCapture(fr, fc, tr, tc, epTarget) {
+      if (!epTarget) return false;
+      if (tr !== epTarget.r || tc !== epTarget.c) return false;
+      const dr = tr - fr, dc = tc - fc;
+      return Math.abs(dr) === 1 && Math.abs(dc) === 1;
+    }
+
+    // Evaluate a pawn move. Returns { legal, capture, enPassant }.
+    // occupant is the piece (if any) currently on the destination square.
+    // It is never a friendly piece (see note above).
+    // pathClear is a function (r,c) -> bool reporting whether a square is
+    // empty (used to block the 2-square advance).
+    // epTarget is the current en-passant opportunity ({r,c,pawnR,pawnC})
+    // or null.
+    function evaluatePawnMove(side, hasMoved, fr, fc, tr, tc, occupant, pathClear, epTarget) {
+      const fail = { legal: false, capture: false, enPassant: false };
+      if (!isBoard(tr, tc)) return fail;
+
+      const dr = tr - fr, dc = tc - fc;
+      const adr = Math.abs(dr), adc = Math.abs(dc);
+      const isDiagonal = (adr === 1 && adc === 1);
+      const dist = adr + adc;
+
+      // Any occupant here is an enemy (friendlies were filtered out already).
+      const occupied = !!occupant;
+
+      if (!inCentre(fr, fc)) {
+        // IN AN ARM: use the arm's axis (its owner's forward/backward).
+        const arm = armOf(fr, fc);
+        const vertical   = (arm === 'N' || arm === 'S');
+        const horizontal = (arm === 'W' || arm === 'E');
+        if (!vertical && !horizontal) return fail;
+
+        // Diagonal capture: any of the four diagonals, onto an occupied square.
+        if (isDiagonal) {
+          const isDiag = ALL_DIAGONALS.some(([a, b]) => dr === a && dc === b);
+          if (isDiag && occupied) {
+            return { legal: true, capture: true, enPassant: false };
+          }
+          // En passant: diagonal onto an EMPTY square that is the skipped
+          // square of the enemy pawn's just-made two-square move.
+          if (isDiag && !occupied && isEnPassantCapture(fr, fc, tr, tc, epTarget)) {
+            return { legal: true, capture: true, enPassant: true };
+          }
+          return fail;
+        }
+
+        // One square forward or backward along the arm's axis, onto empty.
+        if (dist === 1) {
+          const straight =
+            (vertical   && dc === 0 && (dr === -1 || dr === 1)) ||
+            (horizontal && dr === 0 && (dc === -1 || dc === 1));
+          if (straight && !occupant) {
+            return { legal: true, capture: false, enPassant: false };
+          }
+          return fail;
+        }
+
+        // First move: two squares FORWARD only, onto an empty square,
+        // and only if the square passed over is also empty (blocking).
+        if (dist === 2 && !hasMoved) {
+          const f = ARM_FORWARD[arm];
+          if (dr === f[0] * 2 && dc === f[1] * 2 && !occupant) {
+            const midR = fr + f[0];
+            const midC = fc + f[1];
+            if (pathClear(midR, midC)) {
+              return { legal: true, capture: false, enPassant: false };
+            }
+          }
+        }
+        return fail;
+      }
+
+      // IN THE CENTRE: use the pawn's own side's forward + sideways.
+      const o = SIDE_ORIENTATION[side];
+      if (!o) return fail;
+
+      // Diagonal capture: only the two forward diagonals, onto an occupied square.
+      if (isDiagonal) {
+        const diags = centreCaptureDiagonals(side);
+        const isForwardDiag = diags.some(([a, b]) => dr === a && dc === b);
+        if (isForwardDiag && occupied) {
+          return { legal: true, capture: true, enPassant: false };
+        }
+        // EN PASSANT FROM THE CENTRE: a forward diagonal onto an empty
+        // square that is the skipped square is a legal capture.
+        if (isForwardDiag && !occupied &&
+            isEnPassantCapture(fr, fc, tr, tc, epTarget)) {
+          return { legal: true, capture: true, enPassant: true };
+        }
+        return fail;
+      }
+
+      // One square forward or sideways, onto an empty square.
+      if (dist === 1) {
+        const isForward  = (dr === o.forward[0]  && dc === o.forward[1]);
+        const isSideways = o.sideways.some(([sr, sc]) => dr === sr && dc === sc);
+        if ((isForward || isSideways) && !occupant) {
+          return { legal: true, capture: false, enPassant: false };
+        }
+      }
+      // (A pawn in the centre has necessarily already moved, so no 2-square
+      //  advance is possible there — this is unreachable by the rules.)
+      return fail;
+    }
+
+    // Is a move legal for the piece currently in hand?
+    //
+    // PAWNS use their own movement/capture rules (evaluatePawnMove).
+    // ALL OTHER PIECES are still free-move for now, EXCEPT that no piece
+    // may land on a square occupied by a piece of its OWN colour.
+    function isLegalDestination(fromSq, toSq) {
+      if (!heldPiece) return false;
+
+      const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
+      const occupant = boardState[tr + ',' + tc];
+
+      // A piece may never land on a friendly piece (applies to every piece).
+      // After this check, any remaining occupant is an enemy.
+      if (occupant && occupant.colour === heldPiece.colour) return false;
+
+      // Pawns follow their full movement rules.
+      if (heldPiece.pieceType === 'pawn') {
+        const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
+        // pathClear: a square is clear if no piece sits on it.
+        const pathClear = (r, c) => !boardState[r + ',' + c];
+        return evaluatePawnMove(
+          heldPiece.side, heldPiece.hasMoved,
+          fr, fc, tr, tc, occupant, pathClear, enPassantTarget
+        ).legal;
+      }
+
+      // Non-pawns: free move (any distance / direction) for now.
+      return true;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  RESPONSIVE SIZING
+     *
+     *  The board must fit inside the space left after the header, the
+     *  side gutters and the top/bottom strips. Labels line up with the
+     *  grid because they share --square-size, --gutter and --strip.
+     * ------------------------------------------------------------------ */
+    function fitBoard() {
+      const wrap = document.querySelector('.board-wrap');
+      const gutter = 22, strip = 22;
+      const availW = Math.max(0, wrap.clientWidth  - 12 - gutter * 2);
+      const availH = Math.max(0, wrap.clientHeight - 12 - strip  * 2);
+      const size = Math.max(1, Math.floor(Math.min(availW, availH) / N));
+      document.documentElement.style.setProperty('--square-size', size + 'px');
+      document.documentElement.style.setProperty('--gutter', gutter + 'px');
+      document.documentElement.style.setProperty('--strip', strip + 'px');
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  TURN INDICATOR
+     *  Pill filled with the player's colour; text in black or white
+     *  chosen by the colour's perceived luminance.
+     * ------------------------------------------------------------------ */
+    function renderTurn() {
+      const p = currentPlayer();
+      const colourHex = COLOUR_HEX[p.colour];
+      const pill = document.getElementById('turnPill');
+      pill.style.background = colourHex;
+      pill.style.color = readableTextColour(colourHex);
+      document.getElementById('turnText').textContent = `${colourLabel(p.colour)} to move`;
+    }
+
+    function nextTurn() {
+      turnIndex = (turnIndex + 1) % PLAYERS.length;
+      renderTurn();
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  STARTING LAYOUT
+     *
+     *  Queen/king squares are specified per arm so that each queen stands
+     *  on a light square and each king on a dark square:
+     *    North : queen G-1  (0,6)  light   king H-1  (0,7)  dark
+     *    South : queen H-14 (13,7) light   king G-14 (13,6) dark
+     *    West  : queen A-7  (6,0)  light   king A-8  (7,0)  dark
+     *    East  : queen N-8  (7,13) light   king N-7  (6,13) dark
+     *  The back ranks therefore differ between arms:
+     *    North & West : queen on the 4th square (index 3)
+     *    South & East : queen on the 5th square (index 4)
+     * ------------------------------------------------------------------ */
+    const BACK_RANK_Q4 = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+    const BACK_RANK_Q5 = ['rook','knight','bishop','king','queen','bishop','knight','rook'];
+
+    const pawnRank = Array(8).fill('pawn');
+
+    const layout = {
+      south: { colour: southColour, backRank: BACK_RANK_Q5, cells: [
+        ...Array.from({length:8},(_,i)=>[13, C0+i]),
+        ...Array.from({length:8},(_,i)=>[12, C0+i])
+      ]},
+      north: { colour: northColour, backRank: BACK_RANK_Q4, cells: [
+        ...Array.from({length:8},(_,i)=>[0, C0+i]),
+        ...Array.from({length:8},(_,i)=>[1, C0+i])
+      ]},
+      west: { colour: westColour, backRank: BACK_RANK_Q4, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 0]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 1])
+      ]},
+      east: { colour: eastColour, backRank: BACK_RANK_Q5, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 13]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 12])
+      ]}
+    };
+
+    /* ------------------------------------------------------------------ *
+     *  BUILD LABELS
+     *  Column letters A..N (left to right) and row numbers 1..14 (top to
+     *  bottom). Each label cell is one square wide/tall, so labels align
+     *  with the board grid. Col 0 = A, row 0 = 1.
+     * ------------------------------------------------------------------ */
+    (function buildLabels() {
+      const LETTERS = 'ABCDEFGHIJKLMN';
+      const colsTop    = document.getElementById('colsTop');
+      const colsBottom = document.getElementById('colsBottom');
+      const rowsLeft   = document.getElementById('rowsLeft');
+      const rowsRight  = document.getElementById('rowsRight');
+
+      for (let c = 0; c < N; c++) {
+        const letter = LETTERS[c];
+        for (const strip of [colsTop, colsBottom]) {
+          const el = document.createElement('div');
+          el.className = 'col-label';
+          el.textContent = letter;
+          strip.appendChild(el);
+        }
+      }
+
+      for (let r = 0; r < N; r++) {
+        const num = r + 1;
+        for (const strip of [rowsLeft, rowsRight]) {
+          const el = document.createElement('div');
+          el.className = 'row-label';
+          el.textContent = num;
+          strip.appendChild(el);
+        }
+      }
+    })();
+
+    /* ------------------------------------------------------------------ *
+     *  BUILD DOM
+     * ------------------------------------------------------------------ */
+    const board = document.getElementById('chessBoard');
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!isBoard(r, c)) continue;
+        const sq = document.createElement('div');
+        sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.style.left = `calc(var(--square-size) * ${c})`;
+        sq.style.top  = `calc(var(--square-size) * ${r})`;
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+
+        // DEFAULT ARM TINT: squares outside the centre carry a permanent
+        // 30% wash of their arm owner's colour.
+        const arm = armOf(r, c);
+        if (arm) {
+          sq.classList.add('arm-tint');
+          sq.style.setProperty('--tint-color', armOwnerColour(arm));
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'overlay';
+        sq.appendChild(overlay);
+
+        sq.addEventListener('click', () => onSquareClick(sq));
+        sq.addEventListener('mouseenter', () => onSquareEnter(sq));
+        sq.addEventListener('mouseleave', () => onSquareLeave(sq));
+
+        board.appendChild(sq);
+      }
+    }
+
+    // Suppress the context menu while a piece is in hand (right-click = cancel)
+    board.addEventListener('contextmenu', e => {
+      if (heldPiece) { e.preventDefault(); cancelMove(); }
+    });
+
+    // Keyboard cancel
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && heldPiece) cancelMove();
+    });
+
+    function squareEl(r, c) {
+      return board.querySelector(`.square[data-row="${r}"][data-col="${c}"]`);
+    }
+
+    function makePieceEl(pieceType, colour) {
+      const el = document.createElement('div');
+      el.className = 'piece';
+      el.dataset.piece = pieceType;
+      el.dataset.colour = colour;
+      // 10-row sheet now: one cell is 1/10 of the height.
+      el.style.backgroundSize = '600% 1000%';
+      el.style.backgroundPosition =
+        `${PIECE_COLS.indexOf(pieceType) * (100 / 5)}% ${colourIndex(colour) * (100 / 9)}%`;
+      return el;
+    }
+
+    // Place a piece belonging to `side`, with `colour`, at (r,c).
+    // The side is recorded on the piece so movement rules need no lookup.
+    // Pawns start with hasMoved = false (they may still make a 2-square move).
+    function placePiece(r, c, pieceType, colour, side) {
+      const sq = squareEl(r, c);
+      if (!sq) return;
+      const el = makePieceEl(pieceType, colour);
+      sq.appendChild(el);
+      boardState[r + ',' + c] = {
+        pieceType,
+        colour,
+        side,
+        hasMoved: false,
+        el
+      };
+    }
+
+    // Place all four armies. Each army uses its own back rank (queen on a
+    // light square, king on a dark square — see STARTING LAYOUT), and the
+    // same pawn rank. The first 8 cells are the back rank, the next 8 the
+    // pawns, so the layout arrays are ordered back-rank-first.
+    for (const side in layout) {
+      const { colour, backRank, cells } = layout[side];
+      cells.forEach((rc, i) => {
+        const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+        placePiece(rc[0], rc[1], type, colour, side);
+      });
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  HIGHLIGHTS
+     * ------------------------------------------------------------------ */
+    function setOverlayColour(sq, colourKey) {
+      sq.style.setProperty('--overlay-color', COLOUR_HEX[colourKey]);
+    }
+
+    function clearHighlights() {
+      board.querySelectorAll('.square.selected, .square.hover-dest')
+        .forEach(s => s.classList.remove('selected', 'hover-dest'));
+    }
+
+    function removeHeldFromBoard() {
+      if (heldPiece && heldPiece.el.parentNode) {
+        heldPiece.el.parentNode.removeChild(heldPiece.el);
+      }
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  MOVE IN HAND
+     * ------------------------------------------------------------------ */
+    function pickUp(sq, piece) {
+      const key = sq.dataset.row + ',' + sq.dataset.col;
+
+      delete boardState[key];
+      if (piece.el.parentNode) piece.el.parentNode.removeChild(piece.el);
+
+      heldPiece = piece;
+      selectedSquare = sq;
+      setOverlayColour(sq, piece.colour);
+      sq.classList.add('selected');
+
+      previewIn(sq);
+    }
+
+    // Draw the held piece into the given square (removing it from any other).
+    function previewIn(sq) {
+      if (!heldPiece) return;
+      removeHeldFromBoard();
+      sq.appendChild(heldPiece.el);
+    }
+
+    function cancelMove() {
+      if (!heldPiece || !selectedSquare) return;
+      removeHeldFromBoard();
+      selectedSquare.appendChild(heldPiece.el);
+      boardState[selectedSquare.dataset.row + ',' + selectedSquare.dataset.col] = heldPiece;
+
+      clearHighlights();
+      heldPiece = null;
+      selectedSquare = null;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  CLICK HANDLING / MOVEMENT
+     * ------------------------------------------------------------------ */
+    function onSquareClick(sq) {
+      const r = +sq.dataset.row, c = +sq.dataset.col;
+
+      if (heldPiece) {
+        if (sq === selectedSquare) { cancelMove(); return; }
+        if (!isLegalDestination(selectedSquare, sq)) return; // illegal: ignore
+        dropOn(sq);
+        return;
+      }
+
+      const occupant = boardState[r + ',' + c];
+      if (occupant && occupant.colour === currentPlayer().colour) {
+        pickUp(sq, occupant);
+      }
+    }
+
+    function dropOn(toSq) {
+      if (!heldPiece || !selectedSquare) return;
+      const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
+      const toKey = tr + ',' + tc;
+      const fr = +selectedSquare.dataset.row, fc = +selectedSquare.dataset.col;
+
+      // Work out the nature of this move from GEOMETRY, before mutating
+      // any state. This avoids depending on a re-evaluation of the move.
+      let isEpCapture = false;
+      let twoSquarePawnMove = false;
+      let skippedR = null, skippedC = null;
+
+      if (heldPiece.pieceType === 'pawn') {
+        const dr = tr - fr, dc = tc - fc;
+        const dist = Math.abs(dr) + Math.abs(dc);
+
+        // En passant: a one-square diagonal onto the recorded skipped square.
+        if (enPassantTarget &&
+            tr === enPassantTarget.r && tc === enPassantTarget.c &&
+            Math.abs(dr) === 1 && Math.abs(dc) === 1) {
+          isEpCapture = true;
+        }
+
+        // Two-square move (first move).
+        if (dist === 2) {
+          twoSquarePawnMove = true;
+          skippedR = fr + Math.sign(dr);
+          skippedC = fc + Math.sign(dc);
+        }
+      }
+
+      // EN PASSANT CAPTURE: remove the enemy pawn that just moved two
+      // squares. It sits on enPassantTarget.pawnR/pawnC — the square it
+      // landed on — NOT on the destination.
+      if (isEpCapture && enPassantTarget) {
+        const capKey = enPassantTarget.pawnR + ',' + enPassantTarget.pawnC;
+        const capPiece = boardState[capKey];
+        if (capPiece) {
+          capPiece.el.remove();
+          delete boardState[capKey];
+        }
+      }
+
+      // Capture: a friendly occupant can never reach here (it is filtered
+      // out in isLegalDestination), so any occupant is an enemy piece.
+      const target = boardState[toKey];
+      if (target) {
+        target.el.remove();
+        delete boardState[toKey];
+      }
+
+      // Mark the pawn as having moved (disables any future 2-square advance).
+      if (heldPiece.pieceType === 'pawn') heldPiece.hasMoved = true;
+
+      previewIn(toSq);
+      boardState[toKey] = heldPiece;
+
+      // PROMOTION: a pawn that lands on the outermost rank of an arm
+      // other than its own is replaced by the piece that originally
+      // stood on that back-rank square (the king square promotes to a
+      // queen). The promoted piece takes the PAWN'S colour.
+      if (heldPiece.pieceType === 'pawn' &&
+          isPromotionSquare(heldPiece.side, tr, tc)) {
+        const newType = promotionPieceFor(tr, tc);
+        if (newType) {
+          promotePiece(toSq, toKey, newType, heldPiece);
+        }
+      }
+
+      clearHighlights();
+      heldPiece = null;
+      selectedSquare = null;
+
+      // EN PASSANT OPPORTUNITY: if a pawn just made a two-square move and
+      // an enemy pawn sits perpendicular-adjacent to the destination, arm
+      // the opportunity for the next player. Otherwise clear it.
+      enPassantTarget = twoSquarePawnMove
+        ? computeEnPassantTarget(toKey, skippedR, skippedC, tr, tc)
+        : null;
+
+      nextTurn();
+    }
+
+    // Determine whether a two-square pawn move just created an en-passant
+    // opportunity.
+    //
+    // The two-square pawn is the one that can be captured, and it now sits
+    // on (tr,tc) — the DESTINATION of its move. The opportunity is only
+    // real if an ENEMY PAWN sits perpendicular-adjacent to that
+    // destination; that neighbour is the potential capturer.
+    //
+    // Returns { r: skippedR, c: skippedC, pawnR: tr, pawnC: tc }:
+    //   r, c        = skipped square (where the capturer will land)
+    //   pawnR,pawnC = the two-square pawn's square (the piece to remove)
+    function computeEnPassantTarget(toKey, sr, sc, tr, tc) {
+      if (sr === null || sc === null) return null;
+
+      const movingPiece = boardState[toKey];
+      if (!movingPiece || movingPiece.pieceType !== 'pawn') return null;
+
+      // The skipped square must be on the board and in an arm.
+      if (!isBoard(sr, sc)) return null;
+      if (inCentre(sr, sc)) return null;
+
+      // Movement axis: vertical if the row changed, otherwise horizontal.
+      const isVertical = (sr !== tr);
+
+      // Perpendicular neighbours of the DESTINATION square.
+      const neighbours = isVertical
+        ? [[tr, tc - 1], [tr, tc + 1]]   // same row, left/right
+        : [[tr - 1, tc], [tr + 1, tc]];  // same col, up/down
+
+      for (const [nr, nc] of neighbours) {
+        if (!isBoard(nr, nc)) continue;
+        const p = boardState[nr + ',' + nc];
+        if (!p) continue;
+        if (p.pieceType !== 'pawn') continue;
+        if (p.colour === movingPiece.colour) continue;  // must be an enemy
+        // The enemy pawn beside the destination can capture en passant.
+        // The pawn to be REMOVED is the two-square pawn, on (tr,tc).
+        return { r: sr, c: sc, pawnR: tr, pawnC: tc };
+      }
+      return null;
+    }
+
+    // Replace the pawn on toSq with a new piece of newType, keeping the
+    // pawn's colour and side. Updates boardState and the DOM.
+    function promotePiece(toSq, toKey, newType, pawn) {
+      // Remove the pawn's sprite.
+      if (pawn.el.parentNode) pawn.el.parentNode.removeChild(pawn.el);
+
+      // Build the promoted piece's sprite in the pawn's colour.
+      const el = makePieceEl(newType, pawn.colour);
+      toSq.appendChild(el);
+
+      boardState[toKey] = {
+        pieceType: newType,
+        colour: pawn.colour,
+        side: pawn.side,
+        hasMoved: true,   // irrelevant for non-pawns, kept for shape
+        el
+      };
+    }
+
+    // Moving the mouse over a square previews the held piece there —
+    // but only if the destination is legal for the held piece.
+    function onSquareEnter(sq) {
+      if (!heldPiece) return;
+      if (!isLegalDestination(selectedSquare, sq)) return; // illegal: no preview
+      previewIn(sq);
+      if (sq !== selectedSquare) {
+        setOverlayColour(sq, heldPiece.colour);
+        sq.classList.add('hover-dest');
+      }
+    }
+
+    function onSquareLeave(sq) {
+      sq.classList.remove('hover-dest');
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  SPRITE SANITY CHECK + INIT
+     * ------------------------------------------------------------------ */
+    const sprite = new Image();
+    sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
+    sprite.src = 'img/sprites.png';
+
+    renderTurn();
+    fitBoard();
+    window.addEventListener('resize', fitBoard);
+    window.addEventListener('load', fitBoard);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitBoard).observe(document.querySelector('.board-wrap'));
+    }
+  </script>
+
+</body>
+</html>

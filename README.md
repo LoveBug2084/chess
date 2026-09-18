@@ -52,12 +52,12 @@ The **queen always starts on a light square and the king on a dark square**, in
 every arm. Because the arms alternate colour parity, the back rank differs
 between arms:
 
-| Arm    | Queen square | King square |
-|--------|--------------|-------------|
-| North  | **G-1**      | **H-1**     |
-| South  | **H-14**     | **G-14**    |
-| West   | **A-7**      | **A-8**     |
-| East   | **N-8**      | **N-7**     |
+| Arm   | Queen square | King square |
+| ----- | ------------ | ----------- |
+| North | **G-1**      | **H-1**     |
+| South | **H-14**     | **G-14**    |
+| West  | **A-7**      | **A-8**     |
+| East  | **N-8**      | **N-7**     |
 
 That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 
@@ -110,63 +110,65 @@ The **king square promotes to a queen**. The promoted piece takes the **pawn's
 colour**. A pawn may legally stand on its own arm's outer rank (having moved
 backward into it) but does **not** promote there.
 
-### En passant (partially implemented — needs the flag system)
+### En passant
 
-> ⚠️ **Status: incomplete for four-player play.** The current implementation
-> tracks a single global `enPassantTarget` that survives **only until the next
-> move**. In a two-player game that is correct: the opponent moves next and can
-> take the capture immediately. In a **four-player** game it is wrong: after a
-> pawn makes its two-square move, the capturing player's turn may be **one,
-> two, or three moves away**, and the opportunity is destroyed long before
-> their turn arrives.
+En passant is implemented with a **per-pawn flag system**, which is what makes
+it work correctly in a four-player game. In two-player chess the opportunity
+lasts one move; here the capturing player's turn may be one, two or three
+moves away, so the right to capture is recorded **on the pawns themselves**
+and persists until something invalidates it.
 
-**The intended rule** (once the flag system is implemented):
+**How it works:**
 
 - When a pawn makes its **two-square first move** and lands perpendicular-
   adjacent to an enemy pawn, an **en-passant flag is set on both pawns** — on
   the pawn that just moved two squares, and on each adjacent enemy pawn that
   may capture it.
-- The flags **persist** until one of the two flagged pawns moves. They are not
-  cleared by other players' moves in between.
-- While both flags stand, the adjacent pawn may capture the two-square pawn by
-  moving diagonally onto the **skipped square** — the square the two-square
-  pawn passed over. The captured pawn is removed from its own square, beside
-  the destination, not from the destination itself.
-- As soon as **either** flagged pawn moves (or is captured), **both flags are
-  cleared** — the pairing is broken and the opportunity is gone.
-- A pawn may hold flags pairing it with **more than one** partner at once.
+- The **direction is asymmetric** (standard chess rule): only the pawn that
+  was **already there** may capture the pawn that just moved two squares. The
+  two-square pawn cannot capture back.
+- The flags **persist** until a flagged pawn moves or is captured. They are
+  **not** cleared by other players' moves in between — so the opportunity
+  survives however many turns pass before the capturing player's next move.
+- A pawn may hold flags pairing it with **more than one** partner at once. If
+  it two-square-moves next to two enemy pawns, both may capture it.
+- When the capture is made, the capturing pawn moves diagonally onto the
+  **skipped square** — the square the two-square pawn passed over — and the
+  captured pawn is removed from **its own square** (beside the destination),
+  not from the destination itself.
+- **Clearing:** when a flagged pawn moves (without capturing), its flags clear
+  and the matching flags on its partners clear too. When a flagged pawn is
+  captured — by en passant **or by any normal capture** — its flags clear and
+  the matching flags on every pawn it was linked to clear as well, so no stale
+  flag is ever left pointing at an empty square.
 
-This flag model is the next planned task. Until it is in place, en passant is
-only reliable when the capture happens on the very next move.
-
-**Current interim behaviour:** en passant is available **only on the
-immediately following move**, and only in an arm. The captured pawn is removed
-from its own square (beside the destination), and the capturing pawn lands on
-the skipped square.
+**Debug aid:** open the file with `?test=ep` in the URL to load a minimal
+four-pawn position that sets up an en-passant pairing in one move. Flagged
+pawns are ringed in blue so pairings can be seen at a glance. Normal play is
+unaffected — the loader only runs when the parameter is present.
 
 ---
 
 ## Implementation Status
 
-| Area | Status |
-|------|--------|
-| Board rendering (plus shape, 160 squares) | ✅ Done |
-| Coordinate labels (A–N across, 1–14 down) | ✅ Done |
-| Four armies, random colours, starting layout | ✅ Done |
-| Per-arm back ranks (queen on light, king on dark) | ✅ Done |
-| Turn indicator (colour pill, turn cycling) | ✅ Done |
-| Click-to-move, pick-up and preview | ✅ Done |
-| Pawn movement (zone-based) | ✅ Done |
-| Pawn captures (diagonal only) | ✅ Done |
-| Pawn two-square first move | ✅ Done |
-| Pawn two-square blocking | ✅ Done |
-| Pawn promotion | ✅ Done |
-| En passant (two-player style) | ⚠️ Partial |
-| En passant (four-player flag system) | ⬜ Not yet |
-| No friendly landing (all pieces) | ✅ Done |
-| Non-pawn movement rules | ⬜ Not yet (free-move) |
-| King capture / elimination | ⬜ Not yet |
-| Win condition / scoring | ⬜ Not yet |
+| Area                                              | Status                |
+| ------------------------------------------------- | --------------------- |
+| Board rendering (plus shape, 160 squares)         | ✅ Done                |
+| Coordinate labels (A–N across, 1–14 down)         | ✅ Done                |
+| Four armies, random colours, starting layout      | ✅ Done                |
+| Per-arm back ranks (queen on light, king on dark) | ✅ Done                |
+| Turn indicator (colour pill, turn cycling)        | ✅ Done                |
+| Click-to-move, pick-up and preview                | ✅ Done                |
+| Pawn movement (zone-based)                        | ✅ Done                |
+| Pawn captures (diagonal only)                     | ✅ Done                |
+| Pawn two-square first move                        | ✅ Done                |
+| Pawn two-square blocking                          | ✅ Done                |
+| Pawn promotion                                    | ✅ Done                |
+| En passant (four-player flag system)              | ✅ Done                |
+| No friendly landing (all pieces)                  | ✅ Done                |
+| Non-pawn movement rules                           | ⬜ Not yet (free-move) |
+| King capture / elimination                        | ⬜ Not yet             |
+| Win condition / scoring                           | ⬜ Not yet             |
 
 ---
 
@@ -191,16 +193,21 @@ the skipped square.
   `background-position`, which makes them resolution-independent — one sprite
   cell maps onto one square at any board size.
 - **Board state** is held in a `boardState` object keyed by `"row,col"`, with
-  each entry `{ pieceType, colour, side, hasMoved, el }`. This is the single
-  source of truth for what is where.
-- **En passant state (interim)** is held in a single `enPassantTarget`
-  variable, either `null` or `{ r, c, pawnR, pawnC }`:
-  - `r, c` — the **skipped square** the capturing pawn would land on.
-  - `pawnR, pawnC` — the square of the enemy pawn that may be captured (the
-    destination of the two-square move).
-  It is set after a qualifying two-square pawn move and cleared by any other
-  move, so the opportunity lasts exactly one turn. **This is the part that
-  must be replaced by per-pawn flags for four-player play.**
+  each entry `{ pieceType, colour, side, hasMoved, el, enPassantFlags: [] }`.
+  This is the single source of truth for what is where.
+- **En passant state** is held **on each pawn** as an `enPassantFlags` array,
+  empty unless the pawn is part of a pairing. Each flag is
+  `{ r, c, skippedR, skippedC }`:
+  - `r, c` — the **partner pawn's square** (the other pawn in the pair).
+  - `skippedR, skippedC` — the square between them, where the capturing pawn
+    lands.
+    Only the partner's flags authorise a capture (the direction is asymmetric).
+    Flags persist until a flagged pawn moves or is captured, at which point the
+    flag and its reciprocal are both cleared.
+- **Debug test positions:** appending `?test=ep` to the URL replaces the
+  starting position with four pawns (one per player) arranged so an en-passant
+  pairing can be created in a single move. Flagged pawns are ringed in blue
+  (`.square.ep-flagged`). Normal play is unaffected.
 
 ### Visual design
 
@@ -321,7 +328,7 @@ square (king square → queen), in the pawn's own colour.
 
 ### 028
 
-**Coordinate labels and per-arm back ranks.** This is the current version.
+**Coordinate labels and per-arm back ranks.**
 
 - **Coordinate labels** added: columns **A–N** across the top and bottom, rows
   **1–14** down the left and right, laid out in a 3×3 grid around the board.
@@ -331,14 +338,31 @@ square (king square → queen), in the pawn's own colour.
 - **Per-arm back ranks**: queens now start on light squares and kings on dark
   squares in every arm. Queens begin on **A-7, G-1, N-8** and **H-14**. North
   and West use one back-rank order; South and East use the swapped order.
-- **En passant** carried forward from the interim implementation (single
-  `enPassantTarget`, lasts one turn). ⚠️ Still needs the four-player flag
-  system — see *En passant* above.
 - **Promotion** carried forward unchanged from 027.
 
-> **Note on version history:** versions 028–033 (old numbering) were discarded
-> as broken, and the old 034 was renamed to **028**. The changelog above
-> describes the current 028 file.
+### 031
+
+**En passant — the four-player flag system.** This is the current version.
+
+- En passant reworked from a single-turn global target to **per-pawn flags**
+  that persist until a flagged pawn moves or is captured. This makes the rule
+  correct in four-player play, where the capturing player's next turn may be
+  up to three moves away.
+- **Asymmetric direction**: only the pawn already adjacent may capture the
+  two-square mover.
+- **Multiple partners** supported: a two-square pawn may be capturable by more
+  than one enemy pawn at once, independently.
+- **Clean clearing**: when a flagged pawn moves, its flags and its partners'
+  matching flags clear; when a flagged pawn is captured (by en passant or any
+  normal capture), the same cleanup runs before removal, so no stale flags
+  remain.
+- **Debug aid**: `?test=ep` loads a minimal four-pawn position for testing;
+  flagged pawns are ringed in blue.
+
+> **Note on version history:** an earlier run of versions 028–033 was
+> discarded as broken, and the rebuilt file is **028** (coordinate labels,
+> per-arm back ranks, promotion). The en-passant flag system was developed on
+> top of 028 and is the current file, **031**.
 
 ---
 
@@ -347,3 +371,4 @@ square (king square → queen), in the pawn's own colour.
 1. Place `sprites.png` in an `img/` folder next to the HTML file.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
+4. To test en passant, append the url with ?test=ep

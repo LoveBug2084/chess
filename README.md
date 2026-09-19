@@ -101,13 +101,12 @@ arm, so the only direction available is forward. The two-square advance is
 **Capture:** pawns capture **diagonally only**. A non-diagonal move must land
 on an empty square.
 
-**Promotion:** a pawn that reaches the **outermost rank of any arm other than
-its own** is promoted. The promoted piece is **the piece that originally stood
+**Promotion:** a pawn that reaches the **outermost rank of any enemy arm
+is promoted. The promoted piece is **the piece that originally stood
 on that back-rank square** — so landing on the 1st or 8th outer square yields a
 rook, the 2nd or 7th a knight, the 3rd or 6th a bishop, and the 4th a queen.
 The **king square promotes to a queen**. The promoted piece takes the **pawn's
-colour**. A pawn may legally stand on its own arm's outer rank (having moved
-backward into it) but does **not** promote there.
+colour**.
 
 ### En passant
 
@@ -173,8 +172,10 @@ unaffected — the loader only runs when the parameter is present.
 
 ## Technical Notes
 
-- **Single HTML file.** No build step, no dependencies, no framework. Open the
-  file in a browser.
+- Builds 001-032 were a **Single HTML file.**
+- Builds from 033 onwards have been split into logical functions
+- No build step, no dependencies, no framework. Open the
+  file in a browser (chessp4-001 .. 032.html or index.html from 033 onwards).
 - **Sprite sheet:** pieces are drawn from `img/sprites.png`, a grid of
   6 columns (piece type) × 10 rows (colour). Each cell is 128px.
   - Column order: pawn, knight, bishop, rook, queen, king.
@@ -358,10 +359,10 @@ square (king square → queen), in the pawn's own colour.
 - **Debug aid**: `?test=ep` loads a minimal four-pawn position for testing;
   flagged pawns are ringed in blue.
 
-> **Note on version history:** an earlier run of versions 028–033 was
-> discarded as broken, and the rebuilt file is **028** (coordinate labels,
-> per-arm back ranks, promotion). The en-passant flag system was developed on
-> top of 028 and is the current file, **031**.
+### 034
+
+- Pawn movement in arms restricted to forward-only (toward the centre); backward movement removed.
+- Pawn captures in arms restricted to two forward diagonals only (removed the other two backward diagonals).
 
 ---
 
@@ -372,7 +373,3 @@ square (king square → queen), in the pawn's own colour.
 3. No server or build step is required.
 4. To test en passant, append the url with ?test=ep
 
-## Version 034
-
-- Pawn movement in arms restricted to forward-only (toward the centre); backward movement removed.
-- Pawn captures in arms restricted to two forward diagonals only (removed the other two backward diagonals).

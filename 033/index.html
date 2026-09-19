@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4 Player Chess</title>
+
+  <!-- All game styles. Relative to this file, so img/sprites.png resolves
+       as ./img/sprites.png. -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="turn" id="turnPill">
+      <span id="turnText">South to move</span>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board-frame">
+      <div class="strip-cols top"    id="colsTop"></div>
+      <div class="strip-rows left"   id="rowsLeft"></div>
+      <div class="board"             id="chessBoard"></div>
+      <div class="strip-rows right"  id="rowsRight"></div>
+      <div class="strip-cols bottom" id="colsBottom"></div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ *
+       SCRIPTS — ORDER MATTERS
+       
+       These are plain scripts sharing one global scope, so a file may only
+       use names that were defined by an EARLIER file. The order below is
+       the dependency order:
+
+         config    constants + colours + PLAYERS      (no deps)
+         geometry  board shape + promotion squares    (needs config)
+         state     boardState + in-hand variables     (needs config)
+         flags     en-passant flag helpers            (needs state)
+         pawn      pawn rules + isLegalDestination    (needs geometry,
+                                                       state, flags)
+         render    drawing, ghost, markers            (needs config, state)
+         layout    starting layout + DOM build        (needs render + the
+                                                       click handlers)
+         moves     pick up / drop / click / hover     (needs most of the above)
+         debug     ?test=ep loader                    (needs render, state)
+         init      sprite check + start-up calls      (needs render)
+       * ------------------------------------------------------------------ -->
+  <script src="config.js"></script>
+  <script src="geometry.js"></script>
+  <script src="state.js"></script>
+  <script src="flags.js"></script>
+  <script src="pawn.js"></script>
+  <script src="render.js"></script>
+  <script src="layout.js"></script>
+  <script src="moves.js"></script>
+  <script src="debug.js"></script>
+  <script src="init.js"></script>
+
+</body>
+</html>

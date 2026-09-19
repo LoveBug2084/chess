@@ -80,12 +80,11 @@ army it belongs to.
 
 **In an arm** (any of the four 8×3 areas — its own or another player's):
 
-- May move **one square toward or away from the centre**, along the arm's
-  toward/away axis.
+- May move **one square toward the centre**, along the arm's forward axis.
   - North/South arms → up/down on screen.
   - West/East arms → left/right on screen.
-- May **not** move along the arm's length.
-- May **capture on any of the four diagonals**.
+- May **not** move backward (away from the centre) or along the arm's length.
+- May **capture on the two forward diagonals only** (both forward and backward movement are disallowed for captures in the arm).
 
 **In the centre 8×8:**
 
@@ -372,3 +371,8 @@ square (king square → queen), in the pawn's own colour.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
 4. To test en passant, append the url with ?test=ep
+
+## Version 034
+
+- Pawn movement in arms restricted to forward-only (toward the centre); backward movement removed.
+- Pawn captures in arms restricted to two forward diagonals only (removed the other two backward diagonals).

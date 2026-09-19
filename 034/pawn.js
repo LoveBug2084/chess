@@ -7,8 +7,8 @@
      *  The pawn therefore only needs to test occupancy, never colour.
      *
      *  MOVEMENT (per zone):
-     *   - In an arm: forward or backward along the arm's axis
-     *     (the arm owner's toward/away-from-centre direction).
+     *   - In an arm: forward only along the arm's axis
+     *     (the arm owner's toward-centre direction). Backward is disallowed.
      *   - In the centre: forward or sideways, never backward.
      *   - First move: a pawn that has never moved may advance 2 squares
      *     forward (from its arm's outer rank, so only forward is possible).
@@ -19,8 +19,8 @@
      *  allowed movement direction):
      *   - In the centre: the TWO forward diagonals.
      *       (sideways has no diagonal; backward is disallowed)
-     *   - In an arm: ALL FOUR diagonals.
-     *       (both forward and backward movement are allowed there)
+     *   - In an arm: the TWO forward diagonals only.
+     *       (backward movement is disallowed in arms)
      *
      *  A non-diagonal move may only land on an EMPTY square.
      *  A diagonal capture may only land on an OCCUPIED square (an enemy),
@@ -51,9 +51,6 @@
       W: [ 0, 1],   // west arm:  toward centre = right
       E: [ 0,-1]    // east arm:  toward centre = left
     };
-
-    // The four diagonal directions (used for captures in an arm).
-    const ALL_DIAGONALS = [[-1,-1], [-1,1], [1,-1], [1,1]];
 
     // The two forward diagonal directions for a given side (centre captures).
     function centreCaptureDiagonals(side) {

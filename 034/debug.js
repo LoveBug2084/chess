@@ -69,4 +69,7 @@
       renderTurn();
     }
 
-    // Only run the loader when ?test=ep is present in
+    // Only run the loader when ?test=ep is present in the URL.
+    if (new URLSearchParams(location.search).get('test') === 'ep') {
+      loadEnPassantTest();
+    }

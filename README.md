@@ -1,4 +1,4 @@
-# 4 Player Chess
+# 4 Player Chess (work in progress)
 
 A browser-based four-player chess variant played on a plus-shaped board. Each of
 the four armies starts on one arm of the cross and fights a free-for-all: every
@@ -7,7 +7,7 @@ player is hostile to every other, and there are no teams or alliances.
 The board, the four-armies layout, and a set of custom pawn movement rules make
 this a distinct game rather than standard chess with extra players.
 
-![Plus-shaped board](img/board.png)
+-![Plus-shaped board](img/board.png)
 
 ---
 
@@ -75,38 +75,27 @@ That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 
 ### Pawns
 
-Pawn movement depends on **which zone the pawn is standing in**, not on which
-army it belongs to.
+Pawn movement depends on which zone the pawn is in and which army it belongs to (side determines forward direction).
 
-**In an arm** (any of the four 8×3 areas — its own or another player's):
+**In an arm** (any 8×3 area):
 
-- May move **one square toward the centre**, along the arm's forward axis.
-  - North/South arms → up/down on screen.
-  - West/East arms → left/right on screen.
-- May **not** move backward (away from the centre) or along the arm's length.
-- May **capture on the two forward diagonals only** (both forward and backward movement are disallowed for captures in the arm).
+- Move **forward** (away from arm) — **one square**, or **two squares on first move**.
+- Capture on the **two forward diagonals**.
+- Cannot move backward or sideways.
 
 **In the centre 8×8:**
 
-- May move **one square forward or sideways**.
-  - "Forward" is toward the centre, and is fixed per army.
-- May **not** move backward (backward = toward the pawn's own home edge).
-- May **capture on the two forward diagonals**.
+- Move **one square forward or sideways**.
+- Capture on the **two forward diagonals**.
+- Cannot move backward.
 
-**First move:** a pawn that has never moved may advance **two squares
-forward** instead of one. This is only possible from its starting rank in its
-arm, so the only direction available is forward. The two-square advance is
-**blocked** if the square it passes over is occupied.
+**First move:** the two-square advance is blocked if the square it passes over is occupied.
 
-**Capture:** pawns capture **diagonally only**. A non-diagonal move must land
-on an empty square.
+**Capture:** pawns capture diagonally only. A non-diagonal move must land on an empty square.
 
-**Promotion:** a pawn that reaches the **outermost rank of any enemy arm
-is promoted. The promoted piece is **the piece that originally stood
-on that back-rank square** — so landing on the 1st or 8th outer square yields a
-rook, the 2nd or 7th a knight, the 3rd or 6th a bishop, and the 4th a queen.
-The **king square promotes to a queen**. The promoted piece takes the **pawn's
-colour**.
+**Promotion:** a pawn reaching the outermost rank of any enemy arm promotes to the piece that originally occupied that back-rank square in the pawn's colour.
+The possible promotion types are Rook, Knight, Bishop, Queen.
+The King's square promotes to Queen.
 
 ### En passant
 
@@ -142,7 +131,7 @@ and persists until something invalidates it.
 
 **Debug aid:** open the file with `?test=ep` in the URL to load a minimal
 four-pawn position that sets up an en-passant pairing in one move. Flagged
-pawns are ringed in blue so pairings can be seen at a glance. Normal play is
+pawns are ringed in the **creator's player colour** so pairings can be seen at a glance. Normal play is
 unaffected — the loader only runs when the parameter is present.
 
 ---
@@ -206,7 +195,7 @@ unaffected — the loader only runs when the parameter is present.
     flag and its reciprocal are both cleared.
 - **Debug test positions:** appending `?test=ep` to the URL replaces the
   starting position with four pawns (one per player) arranged so an en-passant
-  pairing can be created in a single move. Flagged pawns are ringed in blue
+  pairing can be created in a single move. Flagged pawns are ringed in the **creator's player colour**
   (`.square.ep-flagged`). Normal play is unaffected.
 
 ### Visual design
@@ -357,12 +346,16 @@ square (king square → queen), in the pawn's own colour.
   normal capture), the same cleanup runs before removal, so no stale flags
   remain.
 - **Debug aid**: `?test=ep` loads a minimal four-pawn position for testing;
-  flagged pawns are ringed in blue.
+  flagged pawns are ringed in the creator's player colour.
 
 ### 034
 
 - Pawn movement in arms restricted to forward-only (toward the centre); backward movement removed.
 - Pawn captures in arms restricted to two forward diagonals only (removed the other two backward diagonals).
+
+### 035
+
+- **En passant ring colour**: rings now show the colour of the player who made the two-square move that created the en passant opportunity, instead of a fixed blue. Implemented by storing `creatorColour` on each en passant flag and rendering via a per-square CSS variable.
 
 ---
 
@@ -372,4 +365,3 @@ square (king square → queen), in the pawn's own colour.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
 4. To test en passant, append the url with ?test=ep
-

@@ -6,25 +6,38 @@
      *  destination reaches here it is either EMPTY or holds an ENEMY.
      *  The pawn therefore only needs to test occupancy, never colour.
      *
+     *  A pawn in an arm has ONE direction of travel — its "forward". Which
+     *  way that points depends on WHOSE arm it is standing in:
+     *
+     *    - In its OWN arm  (the arm matching its side): forward is TOWARD
+     *      the centre.
+     *    - In an ENEMY arm (any other arm): forward is AWAY from the
+     *      centre, deeper into the arm.
+     *
+     *  So a pawn always advances the way it is "facing", and once it enters
+     *  an enemy arm it keeps going deeper toward that arm's outer rank
+     *  (where it can promote) — it cannot turn around or step aside.
+     *
      *  MOVEMENT (per zone):
-     *   - In an arm: forward only along the arm's axis
-     *     (the arm owner's toward-centre direction). Backward is disallowed.
+     *   - In an arm: ONE square forward along the arm's axis, in the
+     *     facing direction described above. NOT sideways, NOT backward.
      *   - In the centre: forward or sideways, never backward.
      *   - First move: a pawn that has never moved may advance 2 squares
      *     forward (from its arm's outer rank, so only forward is possible).
      *     The 2-square advance is BLOCKED if the square it passes over
      *     (or its destination) is occupied.
      *
-     *  CAPTURE (diagonals only, and only the diagonals that flank an
-     *  allowed movement direction):
+     *  CAPTURE (diagonals only, and only the diagonals that flank the
+     *  forward direction):
+     *   - In an arm: the TWO diagonals flanking the facing direction.
      *   - In the centre: the TWO forward diagonals.
-     *       (sideways has no diagonal; backward is disallowed)
-     *   - In an arm: the TWO forward diagonals only.
-     *       (backward movement is disallowed in arms)
      *
      *  A non-diagonal move may only land on an EMPTY square.
      *  A diagonal capture may only land on an OCCUPIED square (an enemy),
      *  OR on the en-passant skipped square (see isEnPassantCapture).
+     *
+     *  PROMOTION: a pawn promotes on the outermost rank of any arm that is
+     *  NOT its own (see isPromotionSquare in geometry.js).
      *
      *  EN PASSANT:
      *   When an enemy pawn makes a two-square first move and lands
@@ -60,13 +73,26 @@
       return o.sideways.map(([sr, sc]) => [fr + sr, fc + sc]);
     }
 
-    // The two forward diagonal directions for a given arm.
-    function armCaptureDiagonals(arm) {
-      const f = ARM_FORWARD[arm];
-      if (!f) return [];
+    // The direction a pawn "faces" while standing in a given arm.
+    // In the pawn's OWN arm that is toward the centre (ARM_FORWARD);
+    // in an ENEMY arm it is away from the centre (the negative).
+    function armFacing(side, arm) {
+      const toward = ARM_FORWARD[arm];
+      if (!toward) return null;
+      return (arm === HOME_ARM[side])
+        ? [ toward[0],  toward[1] ]      // own arm: toward centre
+        : [ -toward[0], -toward[1] ];    // enemy arm: away from centre
+    }
+
+    // The two diagonals flanking a given forward direction.
+    function diagonalsFlanking(f) {
       const [fr, fc] = f;
-      const sideways = (arm === 'N' || arm === 'S') ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
-      return sideways.map(([sr, sc]) => [fr + sr, fc + sc]);
+      // Perpendicular step is the forward vector rotated 90 degrees.
+      const pr = -fc, pc = fr;
+      return [
+        [fr + pr, fc + pc],
+        [fr - pr, fc - pc]
+      ];
     }
 
     // Evaluate a pawn move. Returns { legal, capture, enPassant }.
@@ -89,32 +115,32 @@
       const occupied = !!occupant;
 
       if (!inCentre(fr, fc)) {
-        // IN AN ARM: use the arm's axis (its owner's forward/backward).
+        // IN AN ARM: one direction of travel — the pawn's facing direction,
+        // which points toward the centre in its own arm and away from the
+        // centre in an enemy arm. No sideways, no backward.
         const arm = armOf(fr, fc);
-        const vertical   = (arm === 'N' || arm === 'S');
-        const horizontal = (arm === 'W' || arm === 'E');
-        if (!vertical && !horizontal) return fail;
+        const f = armFacing(side, arm);
+        if (!f) return fail;
 
-        // Diagonal capture: only the two forward diagonals, onto an occupied square.
+        // Diagonal capture: only the two diagonals flanking the facing
+        // direction, onto an occupied square.
         if (isDiagonal) {
-          const diags = armCaptureDiagonals(arm);
-          const isForwardDiag = diags.some(([a, b]) => dr === a && dc === b);
-          if (isForwardDiag && occupied) {
+          const diags = diagonalsFlanking(f);
+          const isFacingDiag = diags.some(([a, b]) => dr === a && dc === b);
+          if (isFacingDiag && occupied) {
             return { legal: true, capture: true, enPassant: false };
           }
-          // En passant: forward diagonal onto an EMPTY square, authorised by a flag
-          // whose skipped square is the destination.
-          if (isForwardDiag && !occupied && isEnPassantCapture(pawn, fr, fc, tr, tc)) {
+          // En passant: a facing diagonal onto an EMPTY square, authorised
+          // by a flag whose skipped square is the destination.
+          if (isFacingDiag && !occupied && isEnPassantCapture(pawn, fr, fc, tr, tc)) {
             return { legal: true, capture: true, enPassant: true };
           }
           return fail;
         }
 
-        // One square FORWARD only along the arm's axis, onto empty.
+        // One square FORWARD along the facing direction, onto empty.
         if (dist === 1) {
-          const f = ARM_FORWARD[arm];
-          const straight = (dr === f[0] && dc === f[1]);
-          if (straight && !occupant) {
+          if (dr === f[0] && dc === f[1] && !occupant) {
             return { legal: true, capture: false, enPassant: false };
           }
           return fail;
@@ -123,7 +149,6 @@
         // First move: two squares FORWARD only, onto an empty square,
         // and only if the square passed over is also empty (blocking).
         if (dist === 2 && !hasMoved) {
-          const f = ARM_FORWARD[arm];
           if (dr === f[0] * 2 && dc === f[1] * 2 && !occupant) {
             const midR = fr + f[0];
             const midC = fc + f[1];

@@ -7,7 +7,7 @@ player is hostile to every other, and there are no teams or alliances.
 The board, the four-armies layout, and a set of custom pawn movement rules make
 this a distinct game rather than standard chess with extra players.
 
--![Plus-shaped board](img/board.png)
+![Plus-shaped board](img/board.png)
 
 ---
 
@@ -75,23 +75,34 @@ That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 
 ### Pawns
 
-Pawn movement depends on which zone the pawn is in and which army it belongs to (side determines forward direction).
+A pawn's movement depends on **which zone it is standing in** and, in an arm,
+on **which army it belongs to** (the side determines which way is "forward").
 
-**In an arm** (any 8×3 area):
+**In an arm** (any of the four 8×3 areas):
 
-- Move **forward** (away from arm) — **one square**, or **two squares on first move**.
-- Capture on the **two forward diagonals**.
-- Cannot move backward or sideways.
+- A pawn has **one direction of travel — its "forward"** — and may move **one
+  square** in that direction, or **two squares on its first move**.
+- **Forward points toward the centre** when the pawn is in **its own arm**, and
+  **away from the centre, deeper into the arm**, when it is in an **enemy arm**.
+  So a pawn that enters an enemy arm keeps advancing toward that arm's outer
+  rank — it cannot turn around or step aside.
+- **Cannot move backward or sideways.**
+- **Captures on the two diagonals flanking its forward direction.**
 
 **In the centre 8×8:**
 
 - Move **one square forward or sideways**.
-- Capture on the **two forward diagonals**.
-- Cannot move backward.
+- **Forward** is toward the centre, and is fixed per army.
+- **Cannot move backward.**
+- **Captures on the two forward diagonals.**
 
-**First move:** the two-square advance is blocked if the square it passes over is occupied.
+**First move:** a pawn that has never moved may advance **two squares forward**
+instead of one. This is only possible from its starting rank in its arm, so the
+only direction available is forward. The two-square advance is **blocked** if the
+square it passes over is occupied.
 
-**Capture:** pawns capture diagonally only. A non-diagonal move must land on an empty square.
+**Capture:** pawns capture **diagonally only**. A non-diagonal move must land on
+an empty square.
 
 **Promotion:** a pawn reaching the outermost rank of any enemy arm promotes to the piece that originally occupied that back-rank square in the pawn's colour.
 The possible promotion types are Rook, Knight, Bishop, Queen.
@@ -131,8 +142,9 @@ and persists until something invalidates it.
 
 **Debug aid:** open the file with `?test=ep` in the URL to load a minimal
 four-pawn position that sets up an en-passant pairing in one move. Flagged
-pawns are ringed in the **creator's player colour** so pairings can be seen at a glance. Normal play is
-unaffected — the loader only runs when the parameter is present.
+pawns are ringed in the **creator's player colour**, so a pairing can be seen
+at a glance. Normal play is unaffected — the loader only runs when the
+parameter is present.
 
 ---
 
@@ -186,10 +198,12 @@ unaffected — the loader only runs when the parameter is present.
   This is the single source of truth for what is where.
 - **En passant state** is held **on each pawn** as an `enPassantFlags` array,
   empty unless the pawn is part of a pairing. Each flag is
-  `{ r, c, skippedR, skippedC }`:
+  `{ r, c, skippedR, skippedC, creatorColour }`:
   - `r, c` — the **partner pawn's square** (the other pawn in the pair).
   - `skippedR, skippedC` — the square between them, where the capturing pawn
     lands.
+  - `creatorColour` — the colour of the player whose two-square move created
+    the pairing, used to colour the debug ring.
     Only the partner's flags authorise a capture (the direction is asymmetric).
     Flags persist until a flagged pawn moves or is captured, at which point the
     flag and its reciprocal are both cleared.
@@ -331,7 +345,7 @@ square (king square → queen), in the pawn's own colour.
 
 ### 031
 
-**En passant — the four-player flag system.** This is the current version.
+**En passant — the four-player flag system.**
 
 - En passant reworked from a single-turn global target to **per-pawn flags**
   that persist until a flagged pawn moves or is captured. This makes the rule
@@ -346,7 +360,7 @@ square (king square → queen), in the pawn's own colour.
   normal capture), the same cleanup runs before removal, so no stale flags
   remain.
 - **Debug aid**: `?test=ep` loads a minimal four-pawn position for testing;
-  flagged pawns are ringed in the creator's player colour.
+  flagged pawns are ringed in blue.
 
 ### 034
 
@@ -355,7 +369,22 @@ square (king square → queen), in the pawn's own colour.
 
 ### 035
 
-- **En passant ring colour**: rings now show the colour of the player who made the two-square move that created the en passant opportunity, instead of a fixed blue. Implemented by storing `creatorColour` on each en passant flag and rendering via a per-square CSS variable.
+- **Pawn facing rules in arms.** A pawn in an arm now has a single direction of
+  travel — its "forward" — which points **toward the centre in its own arm** and
+  **away from the centre in an enemy arm**. It may move one square that way (two
+  on its first move) and capture on the two diagonals flanking it. No backward
+  or sideways movement in an arm. This replaces the previous rule where a pawn
+  could move forward or backward in any arm, and means a pawn entering an enemy
+  arm can keep advancing to the far edge to promote instead of getting stranded.
+- **En passant ring colour**: rings now show the colour of the player who made
+  the two-square move that created the en-passant opportunity, instead of a
+  fixed blue. Implemented by storing `creatorColour` on each en passant flag and
+  rendering via a per-square CSS variable.
+- **Fix:** a diagonal capture was being misidentified as a two-square pawn
+  move, because both have a Manhattan distance of 2. This set spurious
+  en-passant flags on adjacent enemy pawns. The two-square check now requires
+  one axis to be unchanged — `dist === 2 && (dr === 0 || dc === 0)` — so only a
+  genuine straight advance creates flags.
 
 ---
 

@@ -80,8 +80,10 @@
           isEpCapture = true;
         }
 
-        // Two-square move (first move).
-        if (dist === 2) {
+        // Two-square move (first move). Must be STRAIGHT — one axis
+        // unchanged — because a diagonal capture is also distance 2 and
+        // must not be mistaken for a two-square pawn advance.
+        if (dist === 2 && (dr === 0 || dc === 0)) {
           twoSquarePawnMove = true;
           skippedR = fr + Math.sign(dr);
           skippedC = fc + Math.sign(dc);

@@ -3,14 +3,10 @@
      *
      *  Queen/king squares are specified per arm so that each queen stands
      *  on a light square and each king on a dark square:
-     *    North : queen G-1  (0,6)  light   king H-1  (0,7)  dark
-     *    South : queen H-14 (13,7) light   king G-14 (13,6) dark
-     *    West  : queen A-7  (6,0)  light   king A-8  (7,0)  dark
-     *    East  : queen N-8  (7,13) light   king N-7  (6,13) dark
-     *  The back ranks therefore differ between arms:
-     *    North & West : queen on the 4th square (index 3)
-     *    South & East : queen on the 5th square (index 4)
-     * ------------------------------------------------------------------ */
+    *    North : queen G-14  (0,6)  light   king H-14  (0,7)  dark
+    *    South : queen H-1   (13,7) light   king G-1   (13,6) dark
+    *    West  : queen A-8   (6,0)  light   king A-7   (7,0)  dark
+    *    East  : queen N-7   (7,13) light   king N-8   (6,13) dark
     const BACK_RANK_Q4 = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
     const BACK_RANK_Q5 = ['rook','knight','bishop','king','queen','bishop','knight','rook'];
 
@@ -37,9 +33,9 @@
 
     /* ------------------------------------------------------------------ *
      *  BUILD LABELS
-     *  Column letters A..N (left to right) and row numbers 1..14 (top to
-     *  bottom). Each label cell is one square wide/tall, so labels align
-     *  with the board grid. Col 0 = A, row 0 = 1.
+     *  Column letters A..N (left to right) and row numbers 1..14 (bottom to
+     *  top). Each label cell is one square wide/tall, so labels align
+     *  with the board grid. Col 0 = A, row 0 = 14 (bottom row).
      * ------------------------------------------------------------------ */
     (function buildLabels() {
       const LETTERS = 'ABCDEFGHIJKLMN';
@@ -59,7 +55,7 @@
       }
 
       for (let r = 0; r < N; r++) {
-        const num = r + 1;
+        const num = N - r;
         for (const strip of [rowsLeft, rowsRight]) {
           const el = document.createElement('div');
           el.className = 'row-label';

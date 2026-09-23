@@ -68,8 +68,37 @@
       turnIndex = 0;
       renderTurn();
     }
+    function loadCastleTest() {
+      // Wipe the board.
+      for (const key in boardState) {
+        const p = boardState[key];
+        if (p && p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+        delete boardState[key];
+      }
 
-    // Only run the loader when ?test=ep is present in the URL.
-    if (new URLSearchParams(location.search).get('test') === 'ep') {
+      // Use the ACTUAL colours from the session.
+      const colSouth = PLAYERS[0].colour;
+      // (If you want to test other arms, change the index and side strings.)
+
+      // South king at G-13 (row 12, col 6)
+      placePiece(12, 6, 'king', colSouth, 'south');
+      boardState['12,6'].hasMoved = false;
+
+      // South rook (king‑side) at E-13 (row 12, col 4)
+      placePiece(12, 4, 'rook', colSouth, 'south');
+      boardState['12,4'].hasMoved = false;
+
+      // Ensure the square between them is empty (already cleared by the loop above).
+
+      // South to move first.
+      turnIndex = 0;
+      renderTurn();
+    }
+
+    // Only run the loaders when the corresponding test param is present.
+    const testParam = new URLSearchParams(location.search).get('test');
+    if (testParam === 'ep') {
       loadEnPassantTest();
+    } else if (testParam === 'castle') {
+      loadCastleTest();
     }

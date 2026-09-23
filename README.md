@@ -1,4 +1,4 @@
-# 4 Player Chess (work in progress)
+# 4 Player Chess ( work in progress )
 
 A browser-based four-player chess variant played on a plus-shaped board. Each of
 the four armies starts on one arm of the cross and fights a free-for-all: every
@@ -67,11 +67,11 @@ That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 
 ### General
 
-- **All four players are enemies.** Any piece may capture any piece of a
-  different colour.
-- A piece may **never** land on a square occupied by a piece of its **own**
-  colour.
-- Non-pawn pieces are, at present, **free-move** (see *Implementation Status*).
+**All four players are enemies.**
+
+- Any piece may capture any piece of a different colour.
+
+- A piece may **never** land on a square occupied by a piece of its **own** colour.
 
 ### Pawns
 
@@ -150,24 +150,23 @@ parameter is present.
 
 ## Implementation Status
 
-| Area                                              | Status                |
-| ------------------------------------------------- | --------------------- |
-| Board rendering (plus shape, 160 squares)         | ✅ Done                |
-| Coordinate labels (A–N across, 1–14 down)         | ✅ Done                |
-| Four armies, random colours, starting layout      | ✅ Done                |
-| Per-arm back ranks (queen on light, king on dark) | ✅ Done                |
-| Turn indicator (colour pill, turn cycling)        | ✅ Done                |
-| Click-to-move, pick-up and preview                | ✅ Done                |
-| Pawn movement (zone-based)                        | ✅ Done                |
-| Pawn captures (diagonal only)                     | ✅ Done                |
-| Pawn two-square first move                        | ✅ Done                |
-| Pawn two-square blocking                          | ✅ Done                |
-| Pawn promotion                                    | ✅ Done                |
-| En passant (four-player flag system)              | ✅ Done                |
-| No friendly landing (all pieces)                  | ✅ Done                |
-| Non-pawn movement rules                           | ⬜ Not yet (free-move) |
-| King capture / elimination                        | ⬜ Not yet             |
-| Win condition / scoring                           | ⬜ Not yet             |
+| Area                                                        | Status    |
+| ----------------------------------------------------------- | --------- |
+| Board rendering (plus shape, 160 squares)                   | ✅ Done    |
+| Coordinate labels (A–N across, 1–14 down)                   | ✅ Done    |
+| Four armies, random colours, starting layout                | ✅ Done    |
+| Per-arm back ranks (queen on light, king on dark)           | ✅ Done    |
+| Turn indicator (colour pill, turn cycling)                  | ✅ Done    |
+| Click-to-move, pick-up and preview                          | ✅ Done    |
+| Pawn movement (zone-based)                                  | ✅ Done    |
+| Pawn captures (diagonal only)                               | ✅ Done    |
+| Pawn two-square first move                                  | ✅ Done    |
+| Pawn two-square blocking                                    | ✅ Done    |
+| Pawn promotion                                              | ✅ Done    |
+| En passant (four-player flag system)                        | ✅ Done    |
+| No friendly landing (all pieces)                            | ✅ Done    |
+| Non-pawn movement rules (rook, knight, bishop, queen, king) | ✅ Done    |
+| King capture / elimination                                  | ⬜ Not yet |
 
 ---
 
@@ -385,6 +384,12 @@ square (king square → queen), in the pawn's own colour.
   en-passant flags on adjacent enemy pawns. The two-square check now requires
   one axis to be unchanged — `dist === 2 && (dr === 0 || dc === 0)` — so only a
   genuine straight advance creates flags.
+
+### 036
+
+- Added movement rules for rook, knight, bishop, queen, and king in pieceRules.js (formerly pawn.js).
+- Renamed pawn.js to pieceRules.js and updated index.html script reference and comment.
+- Updated README.md to version v0.36 (latest) and refreshed implementation status table.
 
 ---
 

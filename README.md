@@ -7,7 +7,7 @@ player is hostile to every other, and there are no teams or alliances.
 The board, the four-armies layout, and a set of custom pawn movement rules make
 this a distinct game rather than standard chess with extra players.
 
-![Plus-shaped board](img/board.png)
+[![Plus-shaped board](img/board.png)](https://lovebug2084.github.io/chess/)
 
 ---
 

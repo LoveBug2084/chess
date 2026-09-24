@@ -80,15 +80,17 @@
       const colSouth = PLAYERS[0].colour;
       // (If you want to test other arms, change the index and side strings.)
 
-      // South king at G-13 (row 12, col 6)
-      placePiece(12, 6, 'king', colSouth, 'south');
-      boardState['12,6'].hasMoved = false;
+      // South king at G-1 (label row 1) -> internal row = N - 1 = 13
+      // Column G -> internal col = 6 (A=0)
+      placePiece(13, 6, 'king', colSouth, 'south');
+      boardState['13,6'].hasMoved = false;
 
-      // South rook (king‑side) at E-13 (row 12, col 4)
-      placePiece(12, 4, 'rook', colSouth, 'south');
-      boardState['12,4'].hasMoved = false;
+      // South rook (king‑side) at D-1 (label row 1) -> internal row 13
+      // Column D -> internal col = 3
+      placePiece(13, 3, 'rook', colSouth, 'south');
+      boardState['13,3'].hasMoved = false;
 
-      // Ensure the square between them is empty (already cleared by the loop above).
+      // Ensure the squares between them are empty (already cleared by the loop above).
 
       // South to move first.
       turnIndex = 0;

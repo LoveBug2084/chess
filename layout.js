@@ -124,3 +124,35 @@ for (const side in layout) {
     placePiece(rc[0], rc[1], type, colour, side);
   });
 }
+/* ------------------------------------------------------------------ *
+ *  PIECE COUNT DISPLAY (fixed overlay, top‑right)
+ * ------------------------------------------------------------------ */
+const countsDiv = document.createElement('div');
+countsDiv.id = 'pieceCounts';
+countsDiv.style.position = 'fixed';
+countsDiv.style.top = '10px';
+countsDiv.style.right = '10px';
+countsDiv.style.zIndex = '1000';
+countsDiv.style.fontFamily = 'sans-serif';
+countsDiv.style.fontSize = '14px';
+countsDiv.style.background = 'rgba(0,0,0,0.6)';
+countsDiv.style.color = '#fff';
+countsDiv.style.padding = '6px 10px';
+countsDiv.style.borderRadius = '4px';
+countsDiv.style.pointerEvents = 'auto';
+document.body.appendChild(countsDiv);
+
+function updatePieceCountDisplay() {
+  let html = '';
+  for (const player of PLAYERS) {
+    const cnt = pieceCounts[player.colour] || 0;
+    html += `<div>${player.label}: ${cnt}</div>`;
+  }
+  countsDiv.innerHTML = html;
+}
+
+// Expose for other modules
+window.updatePieceCountDisplay = updatePieceCountDisplay;
+
+// Initial display
+updatePieceCountDisplay();

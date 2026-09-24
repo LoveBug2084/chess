@@ -55,5 +55,10 @@
     // NOTE: while a piece is in hand, its entry is removed from boardState,
     // and heldPiece holds it instead. It is re-added on drop.
     const boardState = {};
+    // Piece counts per player colour, start at 16 each
+    const pieceCounts = {};
+    for (const player of PLAYERS) {
+        pieceCounts[player.colour] = 16;
+    }
 
     function currentPlayer() { return PLAYERS[turnIndex]; }

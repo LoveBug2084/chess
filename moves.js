@@ -106,6 +106,8 @@
             clearAllFlagsFor(capPiece, flag.r, flag.c);
             capPiece.el.remove();
             delete boardState[capKey];
+            pieceCounts[capPiece.colour]--;
+            updatePieceCountDisplay();
           }
         }
       }
@@ -126,6 +128,8 @@
         clearAllFlagsFor(target, tr, tc);
         target.el.remove();
         delete boardState[toKey];
+        pieceCounts[target.colour]--;
+        updatePieceCountDisplay();
       }
 
       // Mark the pawn as having moved (disables any future 2-square advance).

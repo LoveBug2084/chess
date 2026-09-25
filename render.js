@@ -31,7 +31,11 @@
     }
 
     function nextTurn() {
-      turnIndex = (turnIndex + 1) % PLAYERS.length;
+      // Advance to the next player who still has pieces.
+      // Players with 0 pieces are eliminated and skipped.
+      do {
+        turnIndex = (turnIndex + 1) % PLAYERS.length;
+      } while (pieceCounts[PLAYERS[turnIndex].colour] === 0);
       renderTurn();
     }
 

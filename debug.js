@@ -69,6 +69,34 @@ function loadEnPassantTest() {
   placePiece(10, 7, 'pawn', colEast, 'east');
   boardState['10,7'].hasMoved = true;
 
+  // --- WEST (col 1, moves right/increasing col) ---
+  // Two-square mover at B-10 (10,1) - on West's pawn rank (col 1)
+  placePiece(10, 1, 'pawn', colWest, 'west');
+  boardState['10,1'].hasMoved = false;
+  // Capturers at neighbours of DESTINATION (10,3): up (9,3), down (11,3)
+  placePiece(9, 3, 'pawn', colNorth, 'north');
+  boardState['9,3'].hasMoved = true;
+  placePiece(11, 3, 'pawn', colSouth, 'south');
+  boardState['11,3'].hasMoved = true;
+
+  // --- NORTH (row 1, moves down/increasing row) ---
+  // Two-square mover at G-2 (1,6) - on North's pawn rank (row 1)
+  placePiece(1, 6, 'pawn', colNorth, 'north');
+  boardState['1,6'].hasMoved = false;
+  // Capturers at neighbours of DESTINATION (3,6): left (3,5), right (3,7)
+  placePiece(3, 5, 'pawn', colWest, 'west');
+  boardState['3,5'].hasMoved = true;
+  placePiece(3, 7, 'pawn', colEast, 'east');
+  boardState['3,7'].hasMoved = true;
+
+  // --- EAST (col 12, moves left/decreasing col) ---
+  // Two-square mover at M-4 (4,12) - on East's pawn rank (col 12)
+  placePiece(4, 12, 'pawn', colEast, 'east');
+  boardState['4,12'].hasMoved = false;
+  // Capturers at neighbours of DESTINATION (4,10): up (3,10), down (5,10)
+  placePiece(3, 10, 'pawn', colNorth, 'north');
+  boardState['3,10'].hasMoved = true;
+  placePiece(5, 10, 'pawn', colSouth, 'south');
   // South to move first (the two-square mover).
   turnIndex = 0;
   renderTurn();

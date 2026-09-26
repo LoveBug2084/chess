@@ -117,12 +117,16 @@ window.addEventListener('keydown', e => {
  *    The first 8 cells are the back rank, the next 8 the pawns, so the
  *    layout arrays are ordered back-rank-first.
  * ------------------------------------------------------------------ */
-for (const side in layout) {
-  const { colour, backRank, cells } = layout[side];
-  cells.forEach((rc, i) => {
-    const type = i < 8 ? backRank[i] : pawnRank[i - 8];
-    placePiece(rc[0], rc[1], type, colour, side);
-  });
+// Piece placement moved to init.js so debug mode can run first
+function setupNormalBoard() {
+  for (const side in layout) {
+    const { colour, backRank, cells } = layout[side];
+    cells.forEach((rc, i) => {
+      const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+      placePiece(rc[0], rc[1], type, colour, side);
+    });
+  }
+  updatePieceCountDisplay();
 }
 /* ------------------------------------------------------------------ *
  *  PIECE COUNT DISPLAY (fixed overlay, top‑right)

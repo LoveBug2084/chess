@@ -140,7 +140,7 @@ and persists until something invalidates it.
   the matching flags on every pawn it was linked to clear as well, so no stale
   flag is ever left pointing at an empty square.
 
-**Debug aid:** open the file with `?test=ep` in the URL to load a minimal
+**Debug aid:** open the file with `?test=enpassant` in the URL to load a minimal
 four-pawn position that sets up an en-passant pairing in one move. Flagged
 pawns are ringed in the **creator's player colour**, so a pairing can be seen
 at a glance. Normal play is unaffected — the loader only runs when the
@@ -206,7 +206,7 @@ parameter is present.
     Only the partner's flags authorise a capture (the direction is asymmetric).
     Flags persist until a flagged pawn moves or is captured, at which point the
     flag and its reciprocal are both cleared.
-- **Debug test positions:** appending `?test=ep` to the URL replaces the
+- **Debug test positions:** appending `?test=enpassant` to the URL replaces the
   starting position with four pawns (one per player) arranged so an en-passant
   pairing can be created in a single move. Flagged pawns are ringed in the **creator's player colour**
   (`.square.ep-flagged`). Normal play is unaffected.
@@ -391,6 +391,17 @@ square (king square → queen), in the pawn's own colour.
 - Renamed pawn.js to pieceRules.js and updated index.html script reference and comment.
 - Updated README.md to version v0.36 (latest) and refreshed implementation status table.
 
+### Current version
+
+- **Player elimination**: `nextTurn()` now skips players with 0 pieces (eliminated), preventing softlock when a player loses all pieces.
+- **Piece count tracking**: `pieceCounts` now starts at 0 and is incremented by `placePiece()`; counts always match actual pieces on board.
+- **Debug test restructuring**: Debug mode (`?test=enpassant` / `?test=castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
+- **Castle test position**: Now includes both queen-side (D1) and king-side (K1) rooks for South, with `hasMoved = false` on both.
+- **Debug parameter renamed**: `?test=ep` → `?test=enpassant` for clarity.
+- **En passant test**: Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
+- **Castle test**: Places South king + 2 rooks (3 pieces); other players at 0 pieces.
+- **All test loaders**: Call `updatePieceCountDisplay()` so the UI matches actual counts immediately.
+
 ---
 
 ## Running
@@ -398,4 +409,4 @@ square (king square → queen), in the pawn's own colour.
 1. Place `sprites.png` in an `img/` folder next to the HTML file.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
-4. To test en passant, append the url with ?test=ep
+4. To test en passant, append the url with ?test=enpassant

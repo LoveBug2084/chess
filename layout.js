@@ -108,7 +108,7 @@ for (let r = 0; r < N; r++) {
     overlay.className = 'overlay';
     sq.appendChild(overlay);
 
-    sq.addEventListener('click', () => onSquareClick(sq));
+    sq.addEventListener('pointerdown', () => onSquareClick(sq));
     sq.addEventListener('mouseenter', () => onSquareEnter(sq));
     sq.addEventListener('mouseleave', () => onSquareLeave(sq));
 

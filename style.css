@@ -187,7 +187,7 @@
       position: absolute;
       inset: 8%;
       z-index: 3;               /* above tint/overlay, below piece */
-      border: 2px solid var(--ep-ring-color);
+      border: 4px solid var(--ep-ring-color);
       border-radius: 50%;
       pointer-events: none;
     }

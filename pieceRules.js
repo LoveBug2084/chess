@@ -202,6 +202,9 @@
     function isLegalDestination(fromSq, toSq) {
       if (!heldPiece) return false;
 
+      // Allow returning piece to its origin square (cancel move)
+      if (toSq === fromSq) return true;
+
       const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
       const occupant = boardState[tr + ',' + tc];
 

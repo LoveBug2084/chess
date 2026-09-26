@@ -4,10 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>4 Player Chess</title>
-
-  <!-- All game styles. Relative to this file, so img/sprites.png resolves
-       as ./img/sprites.png. -->
-  <link rel="stylesheet" href="style.css">
+<head>
+  <meta charset="utf-8">
+  <title>4 Player Chess</title>
+  <!-- CSS CACHE BUSTER -->
+  <script>
+    (function () {
+      var v = Date.now();
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'style.css?v=' + v;
+      document.head.appendChild(link);
+    })();
+  </script>
 </head>
 <body>
 

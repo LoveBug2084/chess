@@ -400,7 +400,11 @@ square (king square → queen), in the pawn's own colour.
 - **Debug parameter renamed**: `?test=ep` → `?test=enpassant` for clarity.
 - **En passant test**: Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
 - **Castle test**: Places South king + 2 rooks (3 pieces); other players at 0 pieces.
-- **All test loaders**: Call `updatePieceCountDisplay()` so the UI matches actual counts immediately.
+- **Castling bug fixes**: Fixed bug where hovering a castling square then clicking elsewhere would incorrectly execute castling; castling now only executes when the actual clicked destination is a valid castling square. Fixed missing `boardState[toKey] = heldPiece` assignment that caused pieces to disappear from boardState after moves. Fixed missing `hasMoved = true` for non-pawn pieces, which prevented castling eligibility from updating correctly after moves.
+- **Ghost piece animation**: Added pulsing animation (1s cycle: 100%→0%→100% opacity) to both the ghost piece on the origin square and the piece being dragged (following the mouse). Both pulse in sync during a move.
+- **En passant ring rendering**: Fixed CSS stacking context issue — en passant ring now correctly renders on the square (`.square.ep-flagged::after`) showing through the piece's transparent margins, instead of being hidden behind the piece.
+- **En passant test position**: Restored original 4-pawn test configuration (South mover at G-12 with West/East capturers at F-10/H-10; West/North/East spare pawns on their starting ranks). Fixed missing `pieceCounts` reset and display update in test loader.
+- **hasMoved tracking**: All pieces now set `hasMoved = true` on any move (previously only pawns), ensuring castling eligibility updates correctly for rooks and kings.
 
 ---
 
@@ -410,3 +414,4 @@ square (king square → queen), in the pawn's own colour.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
 4. To test en passant, append the url with ?test=enpassant
+5. To test castling, append the url with ?test=castle

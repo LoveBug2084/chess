@@ -295,13 +295,68 @@
       }
 
       // King moves: one square in any direction (including diagonals), cannot move into check (handled elsewhere).
+      // Castling: king moves 2 squares horizontally toward a rook that hasn't moved, with no pieces between.
       if (heldPiece.pieceType === 'king') {
         const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
-        const dr = Math.abs(tr - fr), dc = Math.abs(tc - fc);
-        // King can move at most one square in any direction
-        if (dr <= 1 && dc <= 1 && !(dr === 0 && dc === 0)) {
-          // Destination already checked for friendly piece; can be empty or enemy.
+        const dr = tr - fr, dc = tc - fc;
+        const absDr = Math.abs(dr), absDc = Math.abs(dc);
+
+        // Normal king move: one square any direction
+        if (absDr <= 1 && absDc <= 1 && !(dr === 0 && dc === 0)) {
           return true;
+        }
+
+        // Castling: 2-square move toward an unmoved rook (horizontal or vertical)
+        // Horizontal: same row (South/North arms), Vertical: same col (West/East arms)
+        if (absDr === 2 && dc === 0 && !heldPiece.hasMoved) {
+          // Vertical castling (West/East arms)
+          const step = dr > 0 ? 1 : -1;
+          let rook = null, rookKey = null, rookRow = null;
+          for (let r = fr + step; r >= 0 && r < N; r += step) {
+            const key = r + ',' + fc;
+            const piece = boardState[key];
+            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
+              rook = piece;
+              rookKey = key;
+              rookRow = r;
+              break;
+            }
+            if (piece) break;
+          }
+          if (rook) {
+            let clear = true;
+            for (let r = fr + step; r !== rookRow; r += step) {
+              if (boardState[r + ',' + fc]) { clear = false; break; }
+            }
+            if (clear) {
+              return true;
+            }
+          }
+        }
+        // Horizontal castling (South/North arms)
+        if (dr === 0 && absDc === 2 && !heldPiece.hasMoved) {
+          const step = dc > 0 ? 1 : -1;
+          let rook = null, rookKey = null, rookCol = null;
+          for (let c = fc + step; c >= 0 && c < N; c += step) {
+            const key = fr + ',' + c;
+            const piece = boardState[key];
+            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
+              rook = piece;
+              rookKey = key;
+              rookCol = c;
+              break;
+            }
+            if (piece) break;
+          }
+          if (rook) {
+            let clear = true;
+            for (let c = fc + step; c !== rookCol; c += step) {
+              if (boardState[fr + ',' + c]) { clear = false; break; }
+            }
+            if (clear) {
+              return true;
+            }
+          }
         }
         return false;
       }

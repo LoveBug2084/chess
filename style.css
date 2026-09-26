@@ -176,26 +176,32 @@
       pointer-events: none;  /* squares handle all clicks */
     }
 
-    /* EN PASSANT FLAG MARKER (debug aid): a subtle ring drawn on any
-       square whose pawn currently holds an en-passant flag, so a pairing
-       can be seen at a glance. Uses ::after so it sits ABOVE the piece
-       sprite (z-index 3, vs the piece at 2) without disturbing the
-       existing layer stack of square -> tint -> overlay -> piece. */
+    /* EN PASSANT FLAG MARKER (debug aid): a subtle ring drawn on the SQUARE
+       whose pawn currently holds an en-passant flag. The piece sprite has
+       transparent margins (128x128 cell, piece art in center), so the ring
+       drawn on the square shows through as a halo around the piece.
+       Uses ::after on .square so it sits below the piece (z-index 3 vs
+       piece at 2) but remains visible through the piece's transparent area. */
     .square.ep-flagged::after {
       content: '';
       position: absolute;
       inset: 8%;
-      z-index: 3;               /* above the piece (z-index 2) */
+      z-index: 3;               /* above tint/overlay, below piece */
       border: 2px solid var(--ep-ring-color);
       border-radius: 50%;
       pointer-events: none;
     }
-
-    /* GHOST PIECE (layer 3b): a 50%-opacity clone of the piece left on its
+    /* GHOST PIECE (layer 3b): a clone of the piece left on its
        ORIGIN square while the real piece is in hand. Purely cosmetic — it
        has no boardState entry and never carries en-passant flags. Sits at
        the same z-index as the real piece (2) so it reads as a faint copy
        of the sprite, above the overlay (1) and the tint (0). */
-    .piece.ghost {
-      opacity: 0.5;
+    @keyframes ghost-pulse {
+      0%   { opacity: 1; }
+      50%  { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    .piece.ghost,
+    .piece.dragging {
+      animation: ghost-pulse 1s ease-in-out infinite;
     }

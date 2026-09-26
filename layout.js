@@ -1,6 +1,23 @@
 /* ------------------------------------------------------------------ *
  *  STARTING LAYOUT
  *
+    A B C D E F G H I J K L M N
+ 14       R K B Q K B K R       14
+ 13       P P P P P P P P       13
+ 12       . . . . . . . .       12
+ 11 R P . . . . . . . . . . P R 11
+ 10 K P . . . . . . . . . . P K 10
+  9 B P . . . . . . . . . . P B 9
+  8 Q P . . . . . . . . . . P K 8
+  7 K P . . . . . . . . . . P Q 7
+  6 B P . . . . . . . . . . P B 6
+  5 K P . . . . . . . . . . P K 5
+  4 R P . . . . . . . . . . P R 4
+  3       . . . . . . . .       3
+  2       P P P P P P P P       2
+  1       R K B K Q B K R       1
+    A B C D E F G H I J K L M N
+ *
  *  Queen/king squares are specified per arm so that each queen stands
  *  on a light square and each king on a dark square:
  *    North : queen G-14  (0,6)  light   king H-14  (0,7)  dark

@@ -73,6 +73,18 @@ That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 
 - A piece may **never** land on a square occupied by a piece of its **own** colour.
 
+### Controls
+
+- **Pick up a piece:** click (or pointer-down) on one of your own pieces. It
+  lifts into hand, leaves a pulsing **ghost** on its origin square, and follows
+  the mouse.
+- **Preview a move:** while a piece is in hand, hover a square. If the move is
+  legal, the destination is highlighted in the moving piece's colour.
+- **Commit a move:** click the highlighted destination square.
+- **Cancel a move:** right-click while a piece is in hand, or press **Esc**.
+  The piece returns to its origin square.
+- **Illegal destinations** are simply ignored — clicking one does nothing.
+
 ### Pawns
 
 A pawn's movement depends on **which zone it is standing in** and, in an arm,
@@ -104,9 +116,58 @@ square it passes over is occupied.
 **Capture:** pawns capture **diagonally only**. A non-diagonal move must land on
 an empty square.
 
-**Promotion:** a pawn reaching the outermost rank of any enemy arm promotes to the piece that originally occupied that back-rank square in the pawn's colour.
+**Promotion:** a pawn reaching the outermost rank of any enemy arm promotes to
+the piece that originally occupied that back-rank square in the pawn's colour.
 The possible promotion types are Rook, Knight, Bishop, Queen.
 The King's square promotes to Queen.
+
+The back rank, in board order along the outer edge of an arm, is:
+
+```
+
+rook, knight, bishop, queen, king, bishop, knight, rook
+
+```
+
+So the piece a pawn promotes to depends on **which outer square it lands on**,
+with the king's square (index 4) substituted by a queen. All four of Rook,
+Knight, Bishop and Queen are reachable, plus Queen again in the king's place.
+
+### Non-pawn pieces
+
+Rook, knight, bishop, queen and king all move with standard chess geometry,
+with the board's plus shape and the four-arm layout as the only differences.
+
+- **Rook** — any number of squares horizontally or vertically, path clear.
+- **Knight** — the usual L-shape (2 + 1); jumps over pieces.
+- **Bishop** — any number of squares diagonally, path clear.
+- **Queen** — rook + bishop combined; any number of squares in a straight line,
+  path clear.
+- **King** — one square in any direction.
+
+### Castling
+
+Castling works in **all four arms**, in the arm's own axis:
+
+- **North and South arms (horizontal):** the king moves **two squares
+  sideways** along its back rank, toward an unmoved rook.
+- **West and East arms (vertical):** the king moves **two squares vertically**
+  along its back rank, toward an unmoved rook.
+
+In every case:
+
+- The king must not have moved.
+- The rook involved must not have moved.
+- All squares between the king and that rook must be empty.
+- The rook lands on the square the king passed over (the square adjacent to the
+  king's destination, on the king's side).
+
+There is **no** check-based restriction yet: because check is not implemented,
+castling is not blocked by moving through or out of check. See *Known
+limitations*.
+
+**Debug aid:** open the file with `?test=castle` in the URL to load a position
+with each player's king and both rooks on their back rank, all unmoved.
 
 ### En passant
 
@@ -146,6 +207,34 @@ pawns are ringed in the **creator's player colour**, so a pairing can be seen
 at a glance. Normal play is unaffected — the loader only runs when the
 parameter is present.
 
+### Turn skipping (stop-gap)
+
+When a player has **0 pieces on the board**, `nextTurn()` skips them so the
+turn loop cannot softlock. This is **not** an elimination rule — it is a
+safety valve for the current prototype, in which **the king is capturable**
+(see *Known limitations*) and a player can therefore be wiped out completely.
+
+With proper chess rules the king is never captured, so this condition should
+never arise in normal play. The intended behaviour, once check and checkmate
+exist, is for a player who is **checkmated** (or **stalemated**) to be skipped
+so the remaining players continue. That logic is **not yet written**.
+
+---
+
+## Debug / Testing
+
+Two test positions can be loaded by adding a query parameter to the URL. Each
+replaces the normal starting position entirely, so only ONE board is built and
+piece counts are correct from the start.
+
+| Parameter           | What it loads                                                        |
+| ------------------- | -------------------------------------------------------------------- |
+| `?test=enpassant`   | A minimal four-pawn position that sets up an en-passant pairing in one move. |
+| `?test=castle`      | Every player's king and both rooks on their back rank, all unmoved.   |
+
+To reset, reload the page (with or without the parameter). Normal play is
+unaffected when no parameter is present.
+
 ---
 
 ## Implementation Status
@@ -157,25 +246,88 @@ parameter is present.
 | Four armies, random colours, starting layout                | ✅ Done    |
 | Per-arm back ranks (queen on light, king on dark)           | ✅ Done    |
 | Turn indicator (colour pill, turn cycling)                  | ✅ Done    |
-| Click-to-move, pick-up and preview                          | ✅ Done    |
-| Pawn movement (zone-based)                                  | ✅ Done    |
+| Click-to-move, pick-up, preview, cancel                     | ✅ Done    |
+| Ghost piece (pulsing copy on origin square)                 | ✅ Done    |
+| Pawn movement (zone-based, per-arm facing)                  | ✅ Done    |
 | Pawn captures (diagonal only)                               | ✅ Done    |
 | Pawn two-square first move                                  | ✅ Done    |
 | Pawn two-square blocking                                    | ✅ Done    |
 | Pawn promotion                                              | ✅ Done    |
 | En passant (four-player flag system)                        | ✅ Done    |
+| En-passant ring markers (debug aid)                         | ✅ Done    |
 | No friendly landing (all pieces)                            | ✅ Done    |
-| Non-pawn movement rules (rook, knight, bishop, queen, king) | ✅ Done    |
-| King capture / elimination                                  | ⬜ Not yet |
+| Non-pawn movement (rook, knight, bishop, queen, king)       | ✅ Done    |
+| Castling (horizontal in N/S, vertical in W/E)               | ✅ Done    |
+| Check / checkmate / king safety                             | ⬜ Not yet |
+| Stalemate handling                                           | ⬜ Not yet |
+
+**Note on "elimination":** there is no elimination rule. A player with 0 pieces
+is skipped by `nextTurn()` purely to prevent a softlock (see *Turn skipping*).
+King capture is still possible, which is what allows a player to reach 0 pieces
+in the first place.
+
+---
+
+## Known limitations
+
+- **The king can be captured.** There is no check, no checkmate, and no rule
+  preventing a move that leaves your own king attacked. Capturing the king is
+  currently a legal move like any other.
+- **No checkmate or stalemate detection.** A player with no legal move but
+  pieces still on the board has no defined outcome yet.
+- **Turn skipping assumes at least one player always has pieces.** The
+  `nextTurn()` loop skips players with 0 pieces; if every player somehow
+  reached 0 pieces the loop would not terminate. Unreachable in normal play,
+  but worth hardening when check/checkmate are written.
+- **Castling ignores check.** Because check is not implemented, a king may
+  castle through or out of an attacked square.
+- **Promotion is automatic.** A pawn reaching a promotion square is promoted
+  to the back-rank piece for that square (king square → queen); there is no
+  choice of piece.
+
+### Intended direction
+
+The king will eventually be **uncapturable**, and the game will end for a
+player at **checkmate** (or stalemate). At that point the 0-piece skip becomes
+unreachable in normal play, and turn skipping will instead be driven by a
+single "is this player still active?" test covering checkmate and stalemate.
+This is noted here so the current skip is not mistaken for deliberate game
+design.
 
 ---
 
 ## Technical Notes
 
-- Builds 001-032 were a **Single HTML file.**
-- Builds from 033 onwards have been split into logical functions
-- No build step, no dependencies, no framework. Open the
-  file in a browser (chessp4-001 .. 032.html or index.html from 033 onwards).
+- Builds 001–032 were a **single HTML file** (discarded pre-028; 028–033 rebuilt).
+- Builds from **035 onwards** are **modular**, split into **12 files** in a
+  numbered folder (e.g. `035/`), loaded with plain `<script>` tags.
+- **No build step, no dependencies, no framework.** Open `index.html` in a
+  browser, directly from `file://` — no server needed.
+- **There is no module system.** The scripts share one global scope, so a file
+  may only use names defined by an **earlier** file. The load order in
+  `index.html` is the dependency order and must be preserved.
+
+### Files and load order
+
+```
+
+index.html     page shell; loads style.css and the scripts below
+style.css      all styling (board, pieces, overlays, en-passant ring)
+config.js      sprite layout, palette, colour maths, PLAYERS
+geometry.js    board shape, arms, promotion squares
+state.js       boardState, in-hand variables, pieceCounts
+flags.js       en-passant flag helpers
+pieceRules.js  movement rules for every piece + isLegalDestination
+render.js      drawing, ghost piece, en-passant markers, turn pill
+layout.js      starting layout, labels, DOM build, piece counts display
+moves.js       pick up / drop / click / hover / castling / promotion
+debug.js       ?test=enpassant and ?test=castle loaders
+init.js        sprite sanity check, board setup, start-up calls
+
+```
+
+Each file may only use names defined by a file above it in this list.
+
 - **Sprite sheet:** pieces are drawn from `img/sprites.png`, a grid of
   6 columns (piece type) × 10 rows (colour). Each cell is 128px.
   - Column order: pawn, knight, bishop, rook, queen, king.
@@ -188,7 +340,7 @@ parameter is present.
 - **Coordinate labels** are laid out in a 3×3 CSS grid around the board
   (`.board-frame`). Each label cell is exactly one square wide/tall, so labels
   align with the grid at any board size. Columns are A–N (col 0 = A) and rows
-  are 1–14 (row 0 = 1).
+  are 1–14 top to bottom (row 0 = row **14**, row 13 = row 1).
 - **Sprites** are positioned with percentage-based `background-size` and
   `background-position`, which makes them resolution-independent — one sprite
   cell maps onto one square at any board size.
@@ -206,10 +358,10 @@ parameter is present.
     Only the partner's flags authorise a capture (the direction is asymmetric).
     Flags persist until a flagged pawn moves or is captured, at which point the
     flag and its reciprocal are both cleared.
-- **Debug test positions:** appending `?test=enpassant` to the URL replaces the
-  starting position with four pawns (one per player) arranged so an en-passant
-  pairing can be created in a single move. Flagged pawns are ringed in the **creator's player colour**
-  (`.square.ep-flagged`). Normal play is unaffected.
+- **Debug test positions:** appending `?test=enpassant` or `?test=castle` to the
+  URL replaces the starting position with a purpose-built test layout. Flagged
+  pawns are ringed in the **creator's player colour** (`.square.ep-flagged`).
+  Normal play is unaffected.
 
 ### Visual design
 
@@ -223,6 +375,12 @@ parameter is present.
   (Rec. 601), so it is always legible.
 - Coordinate labels are muted grey (`#9a9ab0`) so they read as reference
   furniture and never compete with the board.
+- The ghost piece and the piece in hand both pulse (1s cycle, 100% → 0% →
+  100% opacity) so the origin of a move stays visible while the piece is lifted.
+- The en-passant ring is drawn on the square beneath the piece, so it shows
+  through the sprite's transparent margins as a halo. Multiple flags on one
+  pawn produce a segmented conic-gradient ring, one segment per flag, coloured
+  by each flag's `creatorColour`.
 
 ---
 
@@ -365,6 +523,7 @@ square (king square → queen), in the pawn's own colour.
 
 - Pawn movement in arms restricted to forward-only (toward the centre); backward movement removed.
 - Pawn captures in arms restricted to two forward diagonals only (removed the other two backward diagonals).
+- (Superseded by 035, which generalised this to per-arm facing.)
 
 ### 035
 
@@ -389,22 +548,43 @@ square (king square → queen), in the pawn's own colour.
 
 - Added movement rules for rook, knight, bishop, queen, and king in pieceRules.js (formerly pawn.js).
 - Renamed pawn.js to pieceRules.js and updated index.html script reference and comment.
-- Updated README.md to version v0.36 (latest) and refreshed implementation status table.
+- Updated README.md and refreshed implementation status table.
 
 ### Current version
 
-- **Player elimination**: `nextTurn()` now skips players with 0 pieces (eliminated), preventing softlock when a player loses all pieces.
-- **Piece count tracking**: `pieceCounts` now starts at 0 and is incremented by `placePiece()`; counts always match actual pieces on board.
-- **Debug test restructuring**: Debug mode (`?test=enpassant` / `?test=castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
-- **Castle test position**: Now includes both queen-side (D1) and king-side (K1) rooks for South, with `hasMoved = false` on both.
-- **Debug parameter renamed**: `?test=ep` → `?test=enpassant` for clarity.
-- **En passant test**: Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
-- **Castle test**: Places South king + 2 rooks (3 pieces); other players at 0 pieces.
-- **Castling bug fixes**: Fixed bug where hovering a castling square then clicking elsewhere would incorrectly execute castling; castling now only executes when the actual clicked destination is a valid castling square. Fixed missing `boardState[toKey] = heldPiece` assignment that caused pieces to disappear from boardState after moves. Fixed missing `hasMoved = true` for non-pawn pieces, which prevented castling eligibility from updating correctly after moves.
-- **Ghost piece animation**: Added pulsing animation (1s cycle: 100%→0%→100% opacity) to both the ghost piece on the origin square and the piece being dragged (following the mouse). Both pulse in sync during a move.
-- **En passant ring rendering**: Fixed CSS stacking context issue — en passant ring now correctly renders on the square (`.square.ep-flagged::after`) showing through the piece's transparent margins, instead of being hidden behind the piece.
-- **En passant test position**: Restored original 4-pawn test configuration (South mover at G-12 with West/East capturers at F-10/H-10; West/North/East spare pawns on their starting ranks). Fixed missing `pieceCounts` reset and display update in test loader.
-- **hasMoved tracking**: All pieces now set `hasMoved = true` on any move (previously only pawns), ensuring castling eligibility updates correctly for rooks and kings.
+- **Castling implemented for all four arms.** North/South castling is horizontal
+  (king moves two squares along its back rank); West/East castling is vertical
+  (king moves two squares along its back rank). Requires an unmoved king and an
+  unmoved rook on the same rank, with a clear path between them. The rook lands
+  on the square the king passed over. Castling is not yet blocked by check
+  (check is not implemented). A `?test=castle` debug position loads each
+  player's king and both rooks, all unmoved.
+- **Player elimination skip (stop-gap):** `nextTurn()` now skips players with 0 pieces, preventing a softlock when a player loses every piece. This is explicitly **not** an elimination rule — the king is still capturable, so a wipe-out is possible; the skip only keeps the turn loop moving. It will be replaced by proper checkmate/stalemate skipping once those rules are written.
+- **Piece count tracking:** `pieceCounts` now starts at 0 and is incremented by `placePiece()`; counts always match actual pieces on the board.
+- **Debug test restructuring:** Debug mode (`?test=enpassant` / `?test=castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
+- **Castle test position:** Now includes both queen-side (D1) and king-side (K1) rooks for South, with `hasMoved = false` on both.
+- **Debug parameter renamed:** `?test=ep` → `?test=enpassant` for clarity.
+- **En passant test:** Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
+- **Castle test:** Places South king + 2 rooks (3 pieces); other players at 0 pieces.
+- **Castling bug fixes:** Fixed bug where hovering a castling square then clicking elsewhere would incorrectly execute castling; castling now only executes when the actual clicked destination is a valid castling square. Fixed missing `boardState[toKey] = heldPiece` assignment that caused pieces to disappear from boardState after moves. Fixed missing `hasMoved = true` for non-pawn pieces, which prevented castling eligibility from updating correctly after moves.
+- **Ghost piece animation:** Added pulsing animation (1s cycle: 100%→0%→100% opacity) to both the ghost piece on the origin square and the piece being dragged (following the mouse). Both pulse in sync during a move.
+- **En passant ring rendering:** Fixed CSS stacking context issue — en passant ring now correctly renders on the square (`.square.ep-flagged::after`) showing through the piece's transparent margins, instead of being hidden behind the piece.
+- **En passant ring — Firefox fix:** `border-image` was tried first for the ring, but `border-image` ignores `border-radius` (spec behaviour), producing a square. Replaced with a masked conic-gradient pseudo-element. The mask uses the **shorthand** `mask` property (not `mask-image`) with `#000` in the gradient stop, which is the reliable form in Firefox. Mask stop tuned to `60%` and inset to `2%` so the ring is clearly visible rather than a hairline.
+- **En passant test position:** Restored original 4-pawn test configuration (South mover at G-12 with West/East capturers at F-10/H-10; West/North/East spare pawns on their starting ranks). Fixed missing `pieceCounts` reset and display update in test loader.
+- **hasMoved tracking:** All pieces now set `hasMoved = true` on any move (previously only pawns), ensuring castling eligibility updates correctly for rooks and kings.
+- **README corrections and expansion.** Fixed filenames (`chess4p-NNN.html`,
+  lowercase, 3-digit) and the "033 onwards" claim (the modular split is **035**
+  onwards, 12 files). Added a **Files and load order** section documenting the
+  plain-script, shared-global model and the dependency order. Added **Controls**,
+  **Castling**, **Non-pawn pieces**, **Debug / Testing**, **Known limitations**,
+  and **Turn skipping (stop-gap)** sections. Reconciled the `?test=ep` /
+  `?test=enpassant` naming. Corrected the "row 0 = 1" error (row 0 is row 14).
+  Corrected the implementation status table: castling, ghost piece, en-passant
+  ring markers and non-pawn movement are marked done; "king capture /
+  elimination" is replaced by an accurate "check / checkmate / king safety —
+  not yet" row plus a note that 0-piece skipping is a stop-gap, not an
+  elimination rule. Documented the intended direction (uncapturable king;
+  checkmate/stalemate turn skipping).
 
 ---
 

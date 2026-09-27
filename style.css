@@ -201,7 +201,10 @@
       50%  { opacity: 0; }
       100% { opacity: 1; }
     }
-    .piece.ghost,
-    .piece.dragging {
+    .piece.ghost {
       animation: ghost-pulse 1s ease-in-out infinite;
     }
+    .piece.dragging {
+      opacity: 0.5;
+    }
+    

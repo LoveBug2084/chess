@@ -133,11 +133,9 @@
      *  and once at start-up, so a loaded test position is marked immediately.
      * ------------------------------------------------------------------ */
     function refreshEnPassantMarkers() {
-      // Clear any existing rings.
       board.querySelectorAll('.square.ep-flagged')
         .forEach(s => s.classList.remove('ep-flagged'));
 
-      // Ring every square whose pawn holds at least one flag.
       for (const key in boardState) {
         const p = boardState[key];
         if (p.enPassantFlags && p.enPassantFlags.length) {
@@ -145,8 +143,14 @@
           const sq = squareEl(r, c);
           if (sq) {
             sq.classList.add('ep-flagged');
-            const creatorColour = p.enPassantFlags[0].creatorColour;
-            sq.style.setProperty('--ep-ring-color', COLOUR_HEX[creatorColour]);
+            const flags = p.enPassantFlags;
+            const segments = flags.map((f, i) => {
+              const start = (360 / flags.length) * i;
+              const end = (360 / flags.length) * (i + 1);
+              const color = COLOUR_HEX[f.creatorColour];
+              return `${color} ${start}deg, ${color} ${end}deg`;
+            }).join(', ');
+            sq.style.setProperty('--ep-ring-gradient', `conic-gradient(${segments})`);
           }
         }
       }

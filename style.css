@@ -181,13 +181,15 @@
        transparent margins (128x128 cell, piece art in center), so the ring
        drawn on the square shows through as a halo around the piece.
        Uses ::after on .square so it sits below the piece (z-index 3 vs
-       piece at 2) but remains visible through the piece's transparent area. */
+       piece at 2) but remains visible through the piece's transparent area.
+       Multiple flags = segmented conic-gradient ring. */
     .square.ep-flagged::after {
       content: '';
       position: absolute;
       inset: 8%;
-      z-index: 3;               /* above tint/overlay, below piece */
-      border: 4px solid var(--ep-ring-color);
+      z-index: 3;
+      border: 4px solid transparent;
+      border-image: var(--ep-ring-gradient) 1;
       border-radius: 50%;
       pointer-events: none;
     }

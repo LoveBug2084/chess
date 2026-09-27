@@ -193,8 +193,8 @@
 	  /* Mask out the middle so only a ring of the conic gradient remains.
 	     Shorthand `mask` (not `mask-image`) is the reliable form in Firefox;
 	     `#000` instead of `black` avoids an old FF gradient-stop quirk. */
-	  -webkit-mask: radial-gradient(circle, transparent 60%, #000 60%);
-		  mask: radial-gradient(circle, transparent 60%, #000 60%);
+	  -webkit-mask: radial-gradient(circle, transparent 58%, #000 62%);
+		  mask: radial-gradient(circle, transparent 58%, #000 62%);
 	  pointer-events: none;
 	}
     /* GHOST PIECE (layer 3b): a clone of the piece left on its

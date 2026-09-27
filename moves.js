@@ -1,11 +1,9 @@
     /* ------------------------------------------------------------------ *
      *  MOVE IN HAND
      * ------------------------------------------------------------------ */
-    function pickUp(sq, piece) {
+    function pickUp(sq, piece, e) {
       const key = sq.dataset.row + ',' + sq.dataset.col;
 
-      // Leave a faint clone on the origin square so the player can see
-      // where the piece came from while it is in hand.
       addGhost(piece, sq);
 
       delete boardState[key];
@@ -18,7 +16,26 @@
       sq.classList.add('selected');
       piece.el.classList.add('dragging');
 
-      previewIn(sq);
+      board.appendChild(heldPiece.el);
+      positionPieceAtMouse(e);
+      window.addEventListener('mousemove', onMouseMove);
+    }
+
+    function onMouseMove(e) {
+      if (!heldPiece) return;
+      positionPieceAtMouse(e);
+    }
+
+    function positionPieceAtMouse(e) {
+      if (!heldPiece) return;
+      const rect = board.getBoundingClientRect();
+      const squareSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--square-size'));
+      const x = e.clientX - rect.left - squareSize / 2;
+      const y = e.clientY - rect.top - squareSize / 2;
+      heldPiece.el.style.left = x + 'px';
+      heldPiece.el.style.top = y + 'px';
+      heldPiece.el.style.width = squareSize + 'px';
+      heldPiece.el.style.height = squareSize + 'px';
     }
 
     // Draw the held piece into the given square (removing it from any other).
@@ -31,7 +48,12 @@
     function cancelMove() {
       if (!heldPiece || !selectedSquare) return;
       removeGhost();
+      window.removeEventListener('mousemove', onMouseMove);
       removeHeldFromBoard();
+      heldPiece.el.style.left = '';
+      heldPiece.el.style.top = '';
+      heldPiece.el.style.width = '';
+      heldPiece.el.style.height = '';
       heldPiece.el.classList.remove('dragging');
       selectedSquare.appendChild(heldPiece.el);
       boardState[selectedSquare.dataset.row + ',' + selectedSquare.dataset.col] = heldPiece;
@@ -44,7 +66,7 @@
     /* ------------------------------------------------------------------ *
      *  CLICK HANDLING / MOVEMENT
      * ------------------------------------------------------------------ */
-    function onSquareClick(sq) {
+    function onSquareClick(sq, e) {
       const r = +sq.dataset.row, c = +sq.dataset.col;
 
       if (heldPiece) {
@@ -56,7 +78,7 @@
 
       const occupant = boardState[r + ',' + c];
       if (occupant && occupant.colour === currentPlayer().colour) {
-        pickUp(sq, occupant);
+        pickUp(sq, occupant, e);
       }
     }
 
@@ -134,7 +156,13 @@
         updatePieceCountDisplay();
       }
 
-      previewIn(toSq);
+      window.removeEventListener('mousemove', onMouseMove);
+      heldPiece.el.style.left = '';
+      heldPiece.el.style.top = '';
+      heldPiece.el.style.width = '';
+      heldPiece.el.style.height = '';
+      toSq.appendChild(heldPiece.el);
+
       // CASTLING: detect if this move is a castling (king 2 squares toward unmoved rook)
       // Only execute if the actual destination matches a valid castling destination.
       let isCastling = false;
@@ -270,7 +298,12 @@
       }
 
       clearHighlights();
-      if (heldPiece) heldPiece.el.classList.remove('dragging');
+      window.removeEventListener('mousemove', onMouseMove);
+      if (heldPiece) {
+        heldPiece.el.style.left = '';
+        heldPiece.el.style.top = '';
+        heldPiece.el.classList.remove('dragging');
+      }
       heldPiece = null;
       selectedSquare = null;
 
@@ -302,12 +335,11 @@
       };
     }
 
-    // Moving the mouse over a square previews the held piece there —
+    // Moving the mouse over a square highlights it —
     // but only if the destination is legal for the held piece.
     function onSquareEnter(sq) {
       if (!heldPiece) return;
-      if (!isLegalDestination(selectedSquare, sq)) return; // illegal: no preview
-      previewIn(sq);
+      if (!isLegalDestination(selectedSquare, sq)) return; // illegal: no highlight
       if (sq !== selectedSquare) {
         setOverlayColour(sq, heldPiece.colour);
         sq.classList.add('hover-dest');

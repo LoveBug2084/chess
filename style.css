@@ -182,17 +182,21 @@
        drawn on the square shows through as a halo around the piece.
        Uses ::after on .square so it sits below the piece (z-index 3 vs
        piece at 2) but remains visible through the piece's transparent area.
-       Multiple flags = segmented conic-gradient ring. */
-    .square.ep-flagged::after {
-      content: '';
-      position: absolute;
-      inset: 8%;
-      z-index: 3;
-      border: 4px solid transparent;
-      border-image: var(--ep-ring-gradient) 1;
-      border-radius: 50%;
-      pointer-events: none;
-    }
+       Multiple flags = segmented conic-gradient ring via masked background. */
+	 .square.ep-flagged::after {
+	  content: '';
+	  position: absolute;
+	  inset: 2%;
+	  z-index: 3;
+	  border-radius: 50%;
+	  background: var(--ep-ring-gradient);
+	  /* Mask out the middle so only a ring of the conic gradient remains.
+	     Shorthand `mask` (not `mask-image`) is the reliable form in Firefox;
+	     `#000` instead of `black` avoids an old FF gradient-stop quirk. */
+	  -webkit-mask: radial-gradient(circle, transparent 60%, #000 60%);
+		  mask: radial-gradient(circle, transparent 60%, #000 60%);
+	  pointer-events: none;
+	}
     /* GHOST PIECE (layer 3b): a clone of the piece left on its
        ORIGIN square while the real piece is in hand. Purely cosmetic — it
        has no boardState entry and never carries en-passant flags. Sits at

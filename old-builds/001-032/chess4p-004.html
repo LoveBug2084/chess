@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4-Player Plus Chess — Fully Responsive</title>
+  <style>
+    :root {
+      --square-size: 40px;
+      --board: 14;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 12px 12px 6px 12px;
+      flex: 0 0 auto;
+    }
+
+    h1 { margin: 0; font-size: clamp(14px, 2.2vh, 22px); letter-spacing: 1px; }
+    .hint { color: #888; font-size: clamp(10px, 1.5vh, 13px); margin-top: 4px; }
+
+    .board-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 6px;
+      overflow: hidden;          /* safety: never paint over the text */
+    }
+
+    .board {
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+    }
+
+    .square.light { background: #fff8e1; }
+    .square.dark  { background: #a66c40; }
+
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+
+    .legend {
+      flex: 0 0 auto;
+      display: flex;
+      gap: clamp(8px, 2vw, 18px);
+      font-size: clamp(10px, 1.6vh, 13px);
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 6px 12px 12px 12px;
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid #999; display: inline-block; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>4-Player Plus Chess — Fully Responsive</h1>
+    <div class="hint">Four armies, one arm each, in standard two-rank formation facing the centre.</div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="chessBoard"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <script>
+    const PIECE_COLS = ['pawn','knight','bishop','rook','queen','king'];
+
+    const COLOUR_ROWS = [
+      'black', 'white', 'dark-grey', 'light-grey', 'pink', 'red',
+      'orange', 'yellow', 'green', 'blue', 'light-blue', 'purple'
+    ];
+
+    const COLOUR_HEX = {
+      'black':'#000000', 'white':'#ffffff', 'dark-grey':'#989898',
+      'light-grey':'#cbcbcb', 'pink':'#fe98cb', 'red':'#fe0000',
+      'orange':'#fe9832', 'yellow':'#fefe32', 'green':'#00cb32',
+      'blue':'#3232fe', 'light-blue':'#65cbfe', 'purple':'#9865fe'
+    };
+
+    const C0 = 3, C1 = 10, N = 14;
+
+    const EXCLUSIVE_GROUPS = [
+      ['white', 'light-grey', 'dark-grey']
+    ];
+
+    function pickFourColours() {
+      const pool = COLOUR_ROWS.slice();
+      const picked = [];
+      let guard = 0;
+      while (picked.length < 4) {
+        if (++guard > 10000) break;
+        const i = Math.floor(Math.random() * pool.length);
+        const choice = pool[i];
+        const clashes = EXCLUSIVE_GROUPS.some(g =>
+          g.includes(choice) && g.some(c => picked.includes(c))
+        );
+        if (clashes) continue;
+        pool.splice(i, 1);
+        picked.push(choice);
+      }
+      return picked;
+    }
+
+    const [southColour, northColour, westColour, eastColour] = pickFourColours();
+    const colourIndex = c => COLOUR_ROWS.indexOf(c);
+
+    document.getElementById('legend').innerHTML =
+      `<span><span class="dot" style="background:${COLOUR_HEX[southColour]}"></span>South = ${southColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[northColour]}"></span>North = ${northColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[westColour]}"></span>West = ${westColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[eastColour]}"></span>East = ${eastColour}</span>`;
+
+    function isBoard(r, c) {
+      const inCols = c >= C0 && c <= C1;
+      const inRows = r >= C0 && r <= C1;
+      if (inCols && inRows) return true;
+      if ((r < C0 || r > C1) && inCols) return true;
+      if ((c < C0 || c > C1) && inRows) return true;
+      return false;
+    }
+
+    function fitBoard() {
+      const wrap = document.querySelector('.board-wrap');
+      const availW = Math.max(0, wrap.clientWidth  - 12);
+      const availH = Math.max(0, wrap.clientHeight - 12);
+      const size = Math.max(1, Math.floor(Math.min(availW, availH) / N));
+      document.documentElement.style.setProperty('--square-size', size + 'px');
+    }
+
+    const backRank = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+    const pawnRank = Array(8).fill('pawn');
+
+    const layout = {
+      south: { colour: southColour, cells: [
+        ...Array.from({length:8},(_,i)=>[13, C0+i]),
+        ...Array.from({length:8},(_,i)=>[12, C0+i])
+      ]},
+      north: { colour: northColour, cells: [
+        ...Array.from({length:8},(_,i)=>[0, C0+i]),
+        ...Array.from({length:8},(_,i)=>[1, C0+i])
+      ]},
+      west: { colour: westColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 0]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 1])
+      ]},
+      east: { colour: eastColour, cells: [
+        ...Array.from({length:8},(_,i)=>[C0+i, 13]),
+        ...Array.from({length:8},(_,i)=>[C0+i, 12])
+      ]}
+    };
+
+    const board = document.getElementById('chessBoard');
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!isBoard(r, c)) continue;
+        const sq = document.createElement('div');
+        sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.style.left = `calc(var(--square-size) * ${c})`;
+        sq.style.top  = `calc(var(--square-size) * ${r})`;
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+        board.appendChild(sq);
+      }
+    }
+
+    function addPiece(row, col, pieceType, colour) {
+      const sq = board.querySelector(`.square[data-row="${row}"][data-col="${col}"]`);
+      if (!sq) return;
+      const pieceDiv = document.createElement('div');
+      pieceDiv.className = 'piece';
+      const xCol = PIECE_COLS.indexOf(pieceType);
+      const yRow = colourIndex(colour);
+      pieceDiv.style.backgroundSize = '600% 1200%';
+      pieceDiv.style.backgroundPosition =
+        `${xCol * (100 / 5)}% ${yRow * (100 / 11)}%`;
+      sq.appendChild(pieceDiv);
+    }
+
+    for (const side in layout) {
+      const { colour, cells } = layout[side];
+      cells.forEach((rc, i) => {
+        const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+        addPiece(rc[0], rc[1], type, colour);
+      });
+    }
+
+    const sprite = new Image();
+    sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
+    sprite.src = 'img/sprites.png';
+
+    fitBoard();
+    window.addEventListener('resize', fitBoard);
+    window.addEventListener('load', fitBoard);
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitBoard).observe(document.querySelector('.board-wrap'));
+    }
+  </script>
+
+</body>
+</html>

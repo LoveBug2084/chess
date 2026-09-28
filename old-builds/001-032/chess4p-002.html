@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4-Player Plus Chess — Random Colours</title>
+  <style>
+    :root {
+      --board: 14; /* 14x14 bounding box; corners are empty */
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 { margin: 0 0 10px 0; font-size: 22px; letter-spacing: 1px; text-align: center; }
+    .hint { color: #888; font-size: 13px; margin-bottom: 12px; text-align: center; }
+
+    .board {
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+      background: transparent;
+    }
+
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+    }
+
+    .square.light { background: #fff8e1; }
+    .square.dark  { background: #a66c40; }
+
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+
+    /* colour legend */
+    .legend {
+      display: flex;
+      gap: 18px;
+      margin: 14px 0 0 0;
+      font-size: 13px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid #999; display: inline-block; }
+  </style>
+</head>
+<body>
+
+  <h1>4-Player Plus Chess — Random Colours</h1>
+  <div class="hint">Four armies, one arm each, starting in standard two-rank formation facing the centre.</div>
+  <div class="board" id="chessBoard"></div>
+  <div class="legend" id="legend"></div>
+
+  <script>
+    /* ------------------------------------------------------------------ *
+     *  CONFIG
+     * ------------------------------------------------------------------ */
+    const SPRITE_CELL = 128;          // native px of one sprite cell
+    const PIECE_COLS  = ['pawn','knight','bishop','rook','queen','king']; // x order
+
+    // Real colours from the sprite sheet, in row order (0 = top row)
+    const COLOUR_ROWS = [
+      'black', 'white', 'dark-grey', 'light-grey', 'pink', 'red',
+      'orange', 'yellow', 'green', 'blue', 'light-blue', 'purple'
+    ];
+
+    // Actual hex values sampled from sprites.png
+    const COLOUR_HEX = {
+      'black':      '#000000',
+      'white':      '#ffffff',
+      'dark-grey':  '#989898',
+      'light-grey': '#cbcbcb',
+      'pink':       '#fe98cb',
+      'red':        '#fe0000',
+      'orange':     '#fe9832',
+      'yellow':     '#fefe32',
+      'green':      '#00cb32',
+      'blue':       '#3232fe',
+      'light-blue': '#65cbfe',
+      'purple':     '#9865fe'
+    };
+
+    const C0 = 3, C1 = 10;            // centre block spans cols/rows 3..10
+    const N  = 14;                    // bounding grid
+
+    /* ------------------------------------------------------------------ *
+     *  SCALE FACTOR — uniform scaling so pieces always match squares
+     * ------------------------------------------------------------------ */
+    const BASE_SPRITE_CELL = 128;     // native px of one sprite cell
+    const BASE_BOARD_CELLS = 14;      // 14×14 at base unit
+    const scale = Math.min(
+      window.innerWidth / (BASE_SPRITE_CELL * BASE_BOARD_CELLS),
+      window.innerHeight / (BASE_SPRITE_CELL * BASE_BOARD_CELLS)
+    );
+    document.documentElement.style.setProperty('--square-size', `${BASE_SPRITE_CELL * scale}px`);
+    document.documentElement.style.setProperty('--scale', scale);
+
+    /* ------------------------------------------------------------------ *
+     *  BOARD GEOMETRY
+     * ------------------------------------------------------------------ */
+    function isBoard(r, c) {
+      const inCols = c >= C0 && c <= C1;
+      const inRows = r >= C0 && r <= C1;
+      if (inCols && inRows) return true;                 // centre 8x8
+      if ((r < C0 || r > C1) && inCols) return true;     // top/bottom arms
+      if ((c < C0 || c > C1) && inRows) return true;     // left/right arms
+      return false;
+    }
+
+    /* ------------------------------------------------------------------ *
+     *  RANDOMLY PICK 4 DISTINCT COLOURS FROM THE 12
+     * ------------------------------------------------------------------ */
+    const pool = COLOUR_ROWS.slice();
+    const picked = [];
+    while (picked.length < 4) {
+      const i = Math.floor(Math.random() * pool.length);
+      picked.push(pool.splice(i, 1)[0]);
+    }
+    const [southColour, northColour, westColour, eastColour] = picked;
+    const colourIndex = c => COLOUR_ROWS.indexOf(c);
+
+    // Render the legend using the real sprite hex values
+    document.getElementById('legend').innerHTML =
+      `<span><span class="dot" style="background:${COLOUR_HEX[southColour]}"></span>South = ${southColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[northColour]}"></span>North = ${northColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[westColour]}"></span>West = ${westColour}</span>` +
+      `<span><span class="dot" style="background:${COLOUR_HEX[eastColour]}"></span>East = ${eastColour}</span>`;
+
+    /* ------------------------------------------------------------------ *
+     *  STARTING LAYOUT
+     *  Each army: back rank (R N B Q K B N R) then pawn rank, 8 cells each.
+     *  "Forward" is toward the centre.
+     * ------------------------------------------------------------------ */
+    const backRank = ['rook','knight','bishop','queen','king','bishop','knight','rook'];
+    const pawnRank = Array(8).fill('pawn');
+
+    const layout = {
+      south: {
+        colour: southColour,
+        cells: [
+          ...Array.from({length:8},(_,i)=>[13, C0+i]),
+          ...Array.from({length:8},(_,i)=>[12, C0+i])
+        ]
+      },
+      north: {
+        colour: northColour,
+        cells: [
+          ...Array.from({length:8},(_,i)=>[0, C0+i]),
+          ...Array.from({length:8},(_,i)=>[1, C0+i])
+        ]
+      },
+      west: {
+        colour: westColour,
+        cells: [
+          ...Array.from({length:8},(_,i)=>[C0+i, 0]),
+          ...Array.from({length:8},(_,i)=>[C0+i, 1])
+        ]
+      },
+      east: {
+        colour: eastColour,
+        cells: [
+          ...Array.from({length:8},(_,i)=>[C0+i, 13]),
+          ...Array.from({length:8},(_,i)=>[C0+i, 12])
+        ]
+      }
+    };
+
+    /* ------------------------------------------------------------------ *
+     *  BUILD DOM
+     * ------------------------------------------------------------------ */
+    const board = document.getElementById('chessBoard');
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!isBoard(r, c)) continue;
+        const sq = document.createElement('div');
+        sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        sq.style.left = `calc(var(--square-size) * ${c})`;
+        sq.style.top  = `calc(var(--square-size) * ${r})`;
+        sq.dataset.row = r;
+        sq.dataset.col = c;
+        board.appendChild(sq);
+      }
+    }
+
+    function addPiece(row, col, pieceType, colour) {
+      const sq = board.querySelector(`.square[data-row="${row}"][data-col="${col}"]`);
+      if (!sq) return;
+      const pieceDiv = document.createElement('div');
+      pieceDiv.className = 'piece';
+
+      const xCol = PIECE_COLS.indexOf(pieceType);   // 0..5
+      const yRow = colourIndex(colour);             // 0..11
+
+      // Scale the 6x12 sprite so one cell fills the square at any size
+      const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale'));
+      pieceDiv.style.backgroundSize = `calc(600 / var(--scale))% calc(1200 / var(--scale))%`;
+      const xPct = xCol * (100 / (6 - 1));          // 0,20,40,60,80,100
+      const yPct = yRow * (100 / (12 - 1));         // 0 .. 100
+      pieceDiv.style.backgroundPosition = `${xPct}% ${yPct}%`;
+
+      sq.appendChild(pieceDiv);
+    }
+
+    for (const side in layout) {
+      const { colour, cells } = layout[side];
+      cells.forEach((rc, i) => {
+        const type = i < 8 ? backRank[i] : pawnRank[i - 8];
+        addPiece(rc[0], rc[1], type, colour);
+      });
+    }
+
+    // sprite sanity check
+    const sprite = new Image();
+    sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
+    sprite.src = 'img/sprites.png';
+  </script>
+
+</body>
+</html>

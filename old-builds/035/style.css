@@ -1,0 +1,201 @@
+    :root {
+      --square-size: 40px;   /* set at runtime by fitBoard() */
+      --board: 14;           /* 14x14 bounding box; the four 3x3 corners are empty */
+      --gutter: 22px;        /* width of the left/right row-number strips */
+      --strip: 22px;         /* height of the top/bottom column-letter strips */
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;      /* everything must fit; no scrollbars */
+    }
+
+    header {
+      text-align: center;
+      padding: 14px 12px 10px 12px;
+      flex: 0 0 auto;        /* fixed height; board takes the rest */
+      width: 100%;
+    }
+
+    /* The pill is filled with the current player's colour. Its text uses
+       black or white depending on the colour's perceived luminance
+       (see readableTextColour), so it is always legible. */
+    .turn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(15px, 2.4vh, 22px);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .board-wrap {
+      flex: 1 1 auto;        /* fills whatever space the header leaves */
+      min-height: 0;         /* allow the flex child to shrink */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 6px;
+      overflow: hidden;      /* safety: board can never paint over the text */
+    }
+
+    /* The overall "board + coordinate labels" frame. A 3x3 CSS grid:
+         [ gutter |  top strip  | gutter ]
+         [ left   |    board    | right  ]
+         [ gutter | bottom strip| gutter ]
+       The row strips use the same --square-size height as the squares, and
+       the column strips use the same --square-size width, so every label
+       lines up exactly with its row/column. */
+    .board-frame {
+      display: grid;
+      grid-template-columns: var(--gutter) auto var(--gutter);
+      grid-template-rows: var(--strip) auto var(--strip);
+      flex: 0 0 auto;
+    }
+
+    /* Column-letter strips (A..N). Each letter cell is one square wide. */
+    .strip-cols {
+      display: flex;
+      grid-column: 2;
+    }
+
+    .strip-cols.top    { grid-row: 1; }
+    .strip-cols.bottom { grid-row: 3; }
+
+    .col-label {
+      width: var(--square-size);
+      height: var(--strip);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(9px, 1.3vh, 13px);
+      font-weight: 600;
+      color: #9a9ab0;
+      user-select: none;
+    }
+
+    /* Row-number strips (1..14). Each number cell is one square tall. */
+    .strip-rows {
+      display: flex;
+      flex-direction: column;
+      grid-row: 2;
+    }
+
+    .strip-rows.left  { grid-column: 1; }
+    .strip-rows.right { grid-column: 3; }
+
+    .row-label {
+      width: var(--gutter);
+      height: var(--square-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(9px, 1.3vh, 13px);
+      font-weight: 600;
+      color: #9a9ab0;
+      user-select: none;
+    }
+
+    .board {
+      grid-column: 2;
+      grid-row: 2;
+      width: calc(var(--square-size) * var(--board));
+      height: calc(var(--square-size) * var(--board));
+      position: relative;
+    }
+
+    /* LAYER 1: the board square (light/dark background) */
+    .square {
+      position: absolute;
+      width: var(--square-size);
+      height: var(--square-size);
+      cursor: pointer;
+    }
+
+    .square.light { background: #cccccc; }
+    .square.dark  { background: #666666; }
+
+    /* DEFAULT ARM TINT (layer 1b): a permanent 30% wash of the arm owner's
+       colour, drawn OVER the square's own light/dark colour so the board
+       pattern still reads through. Applied only to squares outside the
+       centre. Sits below the move overlay (z-index 1) and the piece (2). */
+    .square.arm-tint::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;            /* above the square colour, below overlay/piece */
+      background: var(--tint-color, transparent);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* LAYER 2: colour highlight overlay — ABOVE the square, BELOW the piece.
+       Colour is set inline via the --overlay-color custom property.
+       Hidden unless the square is .selected or .hover-dest.
+       This is the TEMPORARY move highlight at 30%. */
+    .square .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;            /* above the square background, below the piece */
+      background: var(--overlay-color, transparent);
+      opacity: 0.3;
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Highlight origin square of a piece in hand */
+    .square.selected .overlay { display: block; }
+
+    /* Highlight hovered destination square */
+    .square.hover-dest .overlay { display: block; }
+
+    /* LAYER 3: the chess sprite — always on top of its square */
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;  /* squares handle all clicks */
+    }
+
+    /* EN PASSANT FLAG MARKER (debug aid): a subtle ring drawn on any
+       square whose pawn currently holds an en-passant flag, so a pairing
+       can be seen at a glance. Uses ::after so it sits ABOVE the piece
+       sprite (z-index 3, vs the piece at 2) without disturbing the
+       existing layer stack of square -> tint -> overlay -> piece. */
+    .square.ep-flagged::after {
+      content: '';
+      position: absolute;
+      inset: 8%;
+      z-index: 3;               /* above the piece (z-index 2) */
+      border: 2px solid var(--ep-ring-color);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* GHOST PIECE (layer 3b): a 50%-opacity clone of the piece left on its
+       ORIGIN square while the real piece is in hand. Purely cosmetic — it
+       has no boardState entry and never carries en-passant flags. Sits at
+       the same z-index as the real piece (2) so it reads as a faint copy
+       of the sprite, above the overlay (1) and the tint (0). */
+    .piece.ghost {
+      opacity: 0.5;
+    }

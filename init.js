@@ -8,8 +8,8 @@
  *  board setup runs (normal or debug), keeping pieceCounts correct.
  * ------------------------------------------------------------------ */
 const sprite = new Image();
-sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
-sprite.src = 'img/sprites.png';
+sprite.onerror = () => console.error('Sprite sheet not found: sprites.png');
+sprite.src = 'sprites.png';
 
 // Check debug mode FIRST, before placing any pieces
 const testParam = new URLSearchParams(location.search).get('test');

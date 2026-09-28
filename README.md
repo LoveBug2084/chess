@@ -211,8 +211,8 @@ parameter is present.
 
 When a player has **0 pieces on the board**, `nextTurn()` skips them so the
 turn loop cannot softlock. This is **not** an elimination rule — it is a
-safety valve for the current prototype, in which **the king is capturable**
-(see *Known limitations*) and a player can therefore be wiped out completely.
+safety valve for the current prototype. The king is **not capturable** (see
+*Known limitations*), so a player cannot be wiped out in normal play.
 
 With proper chess rules the king is never captured, so this condition should
 never arise in normal play. The intended behaviour, once check and checkmate
@@ -263,44 +263,37 @@ unaffected when no parameter is present.
 
 **Note on "elimination":** there is no elimination rule. A player with 0 pieces
 is skipped by `nextTurn()` purely to prevent a softlock (see *Turn skipping*).
-King capture is still possible, which is what allows a player to reach 0 pieces
-in the first place.
+The king is **not capturable** (capturing the king is explicitly blocked), so a
+player cannot be wiped out in normal play. The 0-piece skip remains a stop-gap
+for any edge case where a player loses all pieces.
 
 ---
 
 ## Known limitations
 
-- **The king can be captured.** There is no check, no checkmate, and no rule
-  preventing a move that leaves your own king attacked. Capturing the king is
-  currently a legal move like any other.
-- **No checkmate or stalemate detection.** A player with no legal move but
-  pieces still on the board has no defined outcome yet.
-- **Turn skipping assumes at least one player always has pieces.** The
-  `nextTurn()` loop skips players with 0 pieces; if every player somehow
-  reached 0 pieces the loop would not terminate. Unreachable in normal play,
-  but worth hardening when check/checkmate are written.
-- **Castling ignores check.** Because check is not implemented, a king may
-  castle through or out of an attacked square.
-- **Promotion is automatic.** A pawn reaching a promotion square is promoted
-  to the back-rank piece for that square (king square → queen); there is no
-  choice of piece.
+- **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above). There is still no check, no checkmate, and no rule preventing a move that leaves your own king attacked.
+- **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
+- **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
+- **Castling ignores check.** Because check is not implemented, a king may castle through or out of an attacked square.
+- **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
 
 ### Intended direction
 
-The king will eventually be **uncapturable**, and the game will end for a
-player at **checkmate** (or stalemate). At that point the 0-piece skip becomes
-unreachable in normal play, and turn skipping will instead be driven by a
-single "is this player still active?" test covering checkmate and stalemate.
-This is noted here so the current skip is not mistaken for deliberate game
-design.
+The king is **already uncapturable** (capturing the king is explicitly blocked).
+The remaining work is implementing **check/checkmate detection** and **stalemate
+handling**. Once those exist, the game will end for a player at checkmate (or
+stalemate). At that point the 0-piece skip becomes unreachable in normal play,
+and turn skipping will instead be driven by a single "is this player still
+active?" test covering checkmate and stalemate. This is noted here so the
+current skip is not mistaken for deliberate game design.
 
 ---
 
 ## Technical Notes
 
 - Builds 001–032 were a **single HTML file** (discarded pre-028; 028–033 rebuilt).
-- Builds from **035 onwards** are **modular**, split into **12 files** in a
-  numbered folder (e.g. `035/`), loaded with plain `<script>` tags.
+- Builds from **033 onwards** are **modular**, split into **12 files** in a
+  numbered folder (e.g. `033/`), loaded with plain `<script>` tags.
 - **No build step, no dependencies, no framework.** Open `index.html` in a
   browser, directly from `file://` — no server needed.
 - **There is no module system.** The scripts share one global scope, so a file
@@ -573,7 +566,7 @@ square (king square → queen), in the pawn's own colour.
 - **En passant test position:** Restored original 4-pawn test configuration (South mover at G-12 with West/East capturers at F-10/H-10; West/North/East spare pawns on their starting ranks). Fixed missing `pieceCounts` reset and display update in test loader.
 - **hasMoved tracking:** All pieces now set `hasMoved = true` on any move (previously only pawns), ensuring castling eligibility updates correctly for rooks and kings.
 - **README corrections and expansion.** Fixed filenames (`chess4p-NNN.html`,
-  lowercase, 3-digit) and the "033 onwards" claim (the modular split is **035**
+  lowercase, 3-digit) and the "033 onwards" claim (the modular split is **033**
   onwards, 12 files). Added a **Files and load order** section documenting the
   plain-script, shared-global model and the dependency order. Added **Controls**,
   **Castling**, **Non-pawn pieces**, **Debug / Testing**, **Known limitations**,
@@ -585,6 +578,12 @@ square (king square → queen), in the pawn's own colour.
   not yet" row plus a note that 0-piece skipping is a stop-gap, not an
   elimination rule. Documented the intended direction (uncapturable king;
   checkmate/stalemate turn skipping).
+
+### Current version (README corrections)
+
+- **Fixed king capture claim:** The king is **not capturable** — capturing the king is explicitly blocked in `isLegalDestination()` (pieceRules.js:214). Updated *Known limitations*, *Turn skipping*, and *Implementation Status* note to reflect this.
+- **Fixed modular split version:** The modular 12-file structure started at **build 033** (not 035). Corrected *Technical Notes* and changelog entry for 036.
+- **Updated Intended direction:** The king is already uncapturable; the remaining work is check/checkmate detection and stalemate handling.
 
 ---
 

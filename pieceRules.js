@@ -208,9 +208,10 @@
       const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
       const occupant = boardState[tr + ',' + tc];
 
-      // A piece may never land on a friendly piece (applies to every piece).
-      // After this check, any remaining occupant is an enemy.
-      if (occupant && occupant.colour === heldPiece.colour) return false;
+// A piece may never land on a friendly piece (applies to every piece).
+       // After this check, any remaining occupant is an enemy.
+       if (occupant && occupant.colour === heldPiece.colour) return false;
+       if (occupant && occupant.pieceType === 'king') return false;
 
       // Pawns follow their full movement rules. The pawn itself is passed
       // in, because it is in hand (removed from boardState) and its

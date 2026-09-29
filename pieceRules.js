@@ -95,6 +95,133 @@
       ];
     }
 
+    // Check if a piece of given colour on (fr,fc) can capture (tr,tc)
+    // Uses the same movement logic as isLegalDestination but without UI state
+    function canPieceCapture(piece, fr, fc, tr, tc, targetColour) {
+      if (!isBoard(tr, tc)) return false;
+      if (piece.colour === targetColour) return false; // friendly
+
+      const dr = tr - fr, dc = tc - fc;
+      const absDr = Math.abs(dr), absDc = Math.abs(dc);
+      const dist = absDr + absDc;
+
+      // Pawn captures
+      if (piece.pieceType === 'pawn') {
+        const isDiagonal = (absDr === 1 && absDc === 1);
+        const o = SIDE_ORIENTATION[piece.side];
+        if (!o) return false;
+
+        if (!inCentre(fr, fc)) {
+          // In an arm: facing direction depends on whose arm
+          const arm = armOf(fr, fc);
+          const f = armFacing(piece.side, arm);
+          if (!f) return false;
+
+          if (isDiagonal) {
+            const diags = diagonalsFlanking(f);
+            return diags.some(([a, b]) => dr === a && dc === b);
+          }
+          return false; // pawns only capture diagonally
+        } else {
+          // In centre: forward diagonals only
+          const diags = centreCaptureDiagonals(piece.side);
+          return diags.some(([a, b]) => dr === a && dc === b);
+        }
+      }
+
+      // Rook: horizontal/vertical sliding
+      if (piece.pieceType === 'rook') {
+        if (fr !== tr && fc !== tc) return false;
+        const rowStep = fr === tr ? 0 : (tr > fr ? 1 : -1);
+        const colStep = fc === tc ? 0 : (tc > fc ? 1 : -1);
+        let r = fr + rowStep, c = fc + colStep;
+        while (!(r === tr && c === tc)) {
+          if (boardState[r + ',' + c]) return false; // blocked
+          r += rowStep; c += colStep;
+        }
+        return true;
+      }
+
+      // Bishop: diagonal sliding
+      if (piece.pieceType === 'bishop') {
+        if (absDr !== absDc || dist === 0) return false;
+        const rowStep = dr > 0 ? 1 : -1;
+        const colStep = dc > 0 ? 1 : -1;
+        let r = fr + rowStep, c = fc + colStep;
+        while (!(r === tr && c === tc)) {
+          if (boardState[r + ',' + c]) return false;
+          r += rowStep; c += colStep;
+        }
+        return true;
+      }
+
+      // Queen: rook + bishop
+      if (piece.pieceType === 'queen') {
+        if (fr !== tr && fc !== tc && absDr !== absDc) return false;
+        const rowStep = fr === tr ? 0 : (tr > fr ? 1 : -1);
+        const colStep = fc === tc ? 0 : (tc > fc ? 1 : -1);
+        let r = fr + rowStep, c = fc + colStep;
+        while (!(r === tr && c === tc)) {
+          if (boardState[r + ',' + c]) return false;
+          r += rowStep; c += colStep;
+        }
+        return true;
+      }
+
+      // Knight: L-shape jump
+      if (piece.pieceType === 'knight') {
+        return (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2);
+      }
+
+      // King: one square any direction
+      if (piece.pieceType === 'king') {
+        return absDr <= 1 && absDc <= 1 && dist !== 0;
+      }
+
+      return false;
+    }
+
+    // Check if any enemy piece of the given colour attacks (tr,tc)
+    function isSquareAttacked(tr, tc, byColour) {
+      for (const key in boardState) {
+        const piece = boardState[key];
+        if (!piece || piece.colour !== byColour) continue;
+        const [fr, fc] = key.split(',').map(Number);
+        if (canPieceCapture(piece, fr, fc, tr, tc, byColour)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Check if the king's own side is currently in check
+    // If kingPos is provided, use it (for when king is in hand); otherwise search boardState
+    function isKingInCheck(kingSide, kingPos) {
+      const kingColour = PLAYERS.find(p => p.key === kingSide).colour;
+      let kr, kc;
+      if (kingPos) {
+        kr = kingPos.r; kc = kingPos.c;
+      } else {
+        // Find the king in boardState
+        let found = false;
+        for (const key in boardState) {
+          const piece = boardState[key];
+          if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
+            [kr, kc] = key.split(',').map(Number);
+            found = true;
+            break;
+          }
+        }
+        if (!found) return false;
+      }
+      // Check against all three opponent colours
+      for (const player of PLAYERS) {
+        if (player.colour === kingColour) continue;
+        if (isSquareAttacked(kr, kc, player.colour)) return true;
+      }
+      return false;
+    }
+
     // Evaluate a pawn move. Returns { legal, capture, enPassant }.
     // `pawn` is the piece being moved (needed so its flags can be read —
     // it is NOT in boardState while in hand).
@@ -298,67 +425,95 @@
         return true;
       }
 
-      // King moves: one square in any direction (including diagonals), cannot move into check (handled elsewhere).
+      // King moves: one square in any direction (including diagonals), cannot move into check.
       // Castling: king moves 2 squares horizontally toward a rook that hasn't moved, with no pieces between.
+      // King cannot castle out of, through, or into check.
       if (heldPiece.pieceType === 'king') {
         const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
         const dr = tr - fr, dc = tc - fc;
         const absDr = Math.abs(dr), absDc = Math.abs(dc);
+        const kingColour = heldPiece.colour;
 
         // Normal king move: one square any direction
         if (absDr <= 1 && absDc <= 1 && !(dr === 0 && dc === 0)) {
+          // Cannot move into check
+          for (const player of PLAYERS) {
+            if (player.colour === kingColour) continue;
+            if (isSquareAttacked(tr, tc, player.colour)) return false;
+          }
           return true;
         }
 
         // Castling: 2-square move toward an unmoved rook (horizontal or vertical)
-        // Horizontal: same row (South/North arms), Vertical: same col (West/East arms)
-        if (absDr === 2 && dc === 0 && !heldPiece.hasMoved) {
+        // King cannot castle out of, through, or into check
+        const kingPos = { r: fr, c: fc };
+        if (!heldPiece.hasMoved && !isKingInCheck(heldPiece.side, kingPos)) {
           // Vertical castling (West/East arms)
-          const step = dr > 0 ? 1 : -1;
-          let rook = null, rookKey = null, rookRow = null;
-          for (let r = fr + step; r >= 0 && r < N; r += step) {
-            const key = r + ',' + fc;
-            const piece = boardState[key];
-            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
-              rook = piece;
-              rookKey = key;
-              rookRow = r;
-              break;
+          if (absDr === 2 && dc === 0) {
+            const step = dr > 0 ? 1 : -1;
+            let rook = null, rookKey = null, rookRow = null;
+            for (let r = fr + step; r >= 0 && r < N; r += step) {
+              const key = r + ',' + fc;
+              const piece = boardState[key];
+              if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
+                rook = piece;
+                rookKey = key;
+                rookRow = r;
+                break;
+              }
+              if (piece) break;
             }
-            if (piece) break;
+            if (rook) {
+              let clear = true;
+              for (let r = fr + step; r !== rookRow; r += step) {
+                if (boardState[r + ',' + fc]) { clear = false; break; }
+              }
+              if (clear) {
+                // Check intermediate and destination squares for attacks
+                let safe = true;
+                for (let r = fr + step; r !== tr + step; r += step) {
+                  for (const player of PLAYERS) {
+                    if (player.colour === kingColour) continue;
+                    if (isSquareAttacked(r, fc, player.colour)) { safe = false; break; }
+                  }
+                  if (!safe) break;
+                }
+                if (safe) return true;
+              }
+            }
           }
-          if (rook) {
-            let clear = true;
-            for (let r = fr + step; r !== rookRow; r += step) {
-              if (boardState[r + ',' + fc]) { clear = false; break; }
+          // Horizontal castling (South/North arms)
+          if (dr === 0 && absDc === 2) {
+            const step = dc > 0 ? 1 : -1;
+            let rook = null, rookKey = null, rookCol = null;
+            for (let c = fc + step; c >= 0 && c < N; c += step) {
+              const key = fr + ',' + c;
+              const piece = boardState[key];
+              if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
+                rook = piece;
+                rookKey = key;
+                rookCol = c;
+                break;
+              }
+              if (piece) break;
             }
-            if (clear) {
-              return true;
-            }
-          }
-        }
-        // Horizontal castling (South/North arms)
-        if (dr === 0 && absDc === 2 && !heldPiece.hasMoved) {
-          const step = dc > 0 ? 1 : -1;
-          let rook = null, rookKey = null, rookCol = null;
-          for (let c = fc + step; c >= 0 && c < N; c += step) {
-            const key = fr + ',' + c;
-            const piece = boardState[key];
-            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
-              rook = piece;
-              rookKey = key;
-              rookCol = c;
-              break;
-            }
-            if (piece) break;
-          }
-          if (rook) {
-            let clear = true;
-            for (let c = fc + step; c !== rookCol; c += step) {
-              if (boardState[fr + ',' + c]) { clear = false; break; }
-            }
-            if (clear) {
-              return true;
+            if (rook) {
+              let clear = true;
+              for (let c = fc + step; c !== rookCol; c += step) {
+                if (boardState[fr + ',' + c]) { clear = false; break; }
+              }
+              if (clear) {
+                // Check intermediate and destination squares for attacks
+                let safe = true;
+                for (let c = fc + step; c !== tc + step; c += step) {
+                  for (const player of PLAYERS) {
+                    if (player.colour === kingColour) continue;
+                    if (isSquareAttacked(fr, c, player.colour)) { safe = false; break; }
+                  }
+                  if (!safe) break;
+                }
+                if (safe) return true;
+              }
             }
           }
         }

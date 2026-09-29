@@ -44,9 +44,10 @@
          geometry  board shape + promotion squares    (needs config)
          state     boardState + in-hand variables     (needs config)
          flags     en-passant flag helpers            (needs state)
-         pieceRules      piece rules + isLegalDestination    (needs geometry,
-                                                       state, flags)
-         render    drawing, ghost, markers            (needs config, state)
+pieceRules      piece rules + isLegalDestination    (needs geometry,
+                                                        state, flags)
+          check       check detection                    (needs pieceRules)
+          render    drawing, ghost, markers            (needs config, state)
          layout    starting layout + DOM build        (needs render + the
                                                        click handlers)
          moves     pick up / drop / click / hover     (needs most of the above)
@@ -58,6 +59,7 @@
   <script src="state.js"></script>
   <script src="flags.js"></script>
   <script src="pieceRules.js"></script>
+  <script src="check.js"></script>
   <script src="render.js"></script>
   <script src="layout.js"></script>
   <script src="moves.js"></script>

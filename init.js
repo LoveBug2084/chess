@@ -17,6 +17,8 @@ if (testParam === 'enpassant') {
   loadEnPassantTest();
 } else if (testParam === 'castle') {
   loadCastleTest();
+} else if (testParam === 'check') {
+  loadCheckTest();
 } else {
   setupNormalBoard();
 }
@@ -24,6 +26,12 @@ if (testParam === 'enpassant') {
 renderTurn();
 fitBoard();
 refreshEnPassantMarkers();
+
+// Run check detection on initial board (for test positions)
+if (typeof detectChecks === 'function') {
+  const checks = detectChecks();
+  applyCheckVisuals(checks);
+}
 
 window.addEventListener('resize', fitBoard);
 window.addEventListener('load', fitBoard);

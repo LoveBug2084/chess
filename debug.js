@@ -158,3 +158,39 @@ function loadCastleTest() {
   renderTurn();
   updatePieceCountDisplay();
 }
+
+/* ------------------------------------------------------------------ *
+ *  CHECK TEST — simple direct check
+ *
+ *  South king at G-1 (13,6), North queen at G-8 (5,6) on same file.
+ *  North queen attacks south king vertically.
+ *
+ *  Usage:
+ *    1. Open index.html?test=check
+ *    2. South king at G-1 should flash in North's colour
+ *    3. North queen at G-8 should flash in North's colour
+ * ------------------------------------------------------------------ */
+function loadCheckTest() {
+  for (const key in boardState) {
+    const p = boardState[key];
+    if (p && p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    delete boardState[key];
+  }
+  for (const player of PLAYERS) pieceCounts[player.colour] = 0;
+
+  const colSouth = PLAYERS[0].colour;
+  const colNorth = PLAYERS[2].colour;
+
+  // South king at G-1 (13,6)
+  placePiece(13, 6, 'king', colSouth, 'south');
+  boardState['13,6'].hasMoved = false;
+
+  // North queen at G-8 (5,6) - same file, attacks king
+  placePiece(5, 6, 'queen', colNorth, 'north');
+  boardState['5,6'].hasMoved = false;
+
+  // South to move first
+  turnIndex = 0;
+  renderTurn();
+  updatePieceCountDisplay();
+}

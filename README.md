@@ -161,10 +161,7 @@ In every case:
 - All squares between the king and that rook must be empty.
 - The rook lands on the square the king passed over (the square adjacent to the
   king's destination, on the king's side).
-
-There is **no** check-based restriction yet: because check is not implemented,
-castling is not blocked by moving through or out of check. See *Known
-limitations*.
+- **The king cannot castle out of, through, or into check.**
 
 **Debug aid:** open the file with `?test=castle` in the URL to load a position
 with each player's king and both rooks on their back rank, all unmoved.
@@ -223,7 +220,7 @@ so the remaining players continue. That logic is **not yet written**.
 
 ## Debug / Testing
 
-Two test positions can be loaded by adding a query parameter to the URL. Each
+Three test positions can be loaded by adding a query parameter to the URL. Each
 replaces the normal starting position entirely, so only ONE board is built and
 piece counts are correct from the start.
 
@@ -231,6 +228,7 @@ piece counts are correct from the start.
 | ------------------- | -------------------------------------------------------------------- |
 | `?test=enpassant`   | A minimal four-pawn position that sets up an en-passant pairing in one move. |
 | `?test=castle`      | Every player's king and both rooks on their back rank, all unmoved.   |
+| `?test=check`       | South king at G-1 with North queen at G-8 delivering direct check.    |
 
 To reset, reload the page (with or without the parameter). Normal play is
 unaffected when no parameter is present.
@@ -258,7 +256,9 @@ unaffected when no parameter is present.
 | No friendly landing (all pieces)                            | ✅ Done    |
 | Non-pawn movement (rook, knight, bishop, queen, king)       | ✅ Done    |
 | Castling (horizontal in N/S, vertical in W/E)               | ✅ Done    |
-| Check / checkmate / king safety                             | ⬜ Not yet |
+| King cannot move into check                                 | ✅ Done    |
+| Castling out of/through/into check prevented                | ✅ Done    |
+| Checkmate detection                                          | ⬜ Not yet |
 | Stalemate handling                                           | ⬜ Not yet |
 
 **Note on "elimination":** there is no elimination rule. A player with 0 pieces
@@ -274,13 +274,14 @@ for any edge case where a player loses all pieces.
 - **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above). There is still no check, no checkmate, and no rule preventing a move that leaves your own king attacked.
 - **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
 - **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
-- **Castling ignores check.** Because check is not implemented, a king may castle through or out of an attacked square.
+- **Castling into/through/out of check is prevented.** The king cannot castle out of, through, or into check.
 - **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
 
 ### Intended direction
 
 The king is **already uncapturable** (capturing the king is explicitly blocked).
-The remaining work is implementing **check/checkmate detection** and **stalemate
+**Check detection is implemented** — the king cannot move into check, and castling out of/through/into check is prevented.
+The remaining work is implementing **checkmate detection** and **stalemate
 handling**. Once those exist, the game will end for a player at checkmate (or
 stalemate). At that point the 0-piece skip becomes unreachable in normal play,
 and turn skipping will instead be driven by a single "is this player still
@@ -585,6 +586,15 @@ square (king square → queen), in the pawn's own colour.
 - **Fixed modular split version:** The modular 12-file structure started at **build 033** (not 035). Corrected *Technical Notes* and changelog entry for 036.
 - **Updated Intended direction:** The king is already uncapturable; the remaining work is check/checkmate detection and stalemate handling.
 
+### Current version (check detection)
+
+- **Check detection implemented:** New `check.js` module detects all checks on the board after each move using existing movement rules from `pieceRules.js`.
+- **Visual feedback:** King's square and attacker's square flash in the attacker's colour (1s pulse animation matching ghost piece).
+- **Check test position:** `?test=check` loads South king at G-1 with North queen at G-8 delivering direct vertical check.
+- **Integration:** Check detection runs in `dropOn()` after each move; visuals cleared on `pickUp()` and `cancelMove()`.
+- **Check prevention:** `pieceRules.js` now prevents the king from moving into check, and prevents castling out of/through/into check.
+- **Known limitations:** No checkmate/stalemate detection, no turn skip for checkmate.
+
 ---
 
 ## Running
@@ -594,3 +604,4 @@ square (king square → queen), in the pawn's own colour.
 3. No server or build step is required.
 4. To test en passant, append the url with ?test=enpassant
 5. To test castling, append the url with ?test=castle
+6. To test check detection, append the url with ?test=check

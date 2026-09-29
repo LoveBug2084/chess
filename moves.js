@@ -2,6 +2,7 @@
      *  MOVE IN HAND
      * ------------------------------------------------------------------ */
     function pickUp(sq, piece, e) {
+      clearCheckVisuals();
       const key = sq.dataset.row + ',' + sq.dataset.col;
 
       addGhost(piece, sq);
@@ -59,6 +60,7 @@
       boardState[selectedSquare.dataset.row + ',' + selectedSquare.dataset.col] = heldPiece;
 
       clearHighlights();
+      clearCheckVisuals();
       heldPiece = null;
       selectedSquare = null;
     }
@@ -309,6 +311,10 @@
 
       // Refresh the en-passant rings so the new flag state is visible.
       refreshEnPassantMarkers();
+
+      // Detect checks and apply visuals
+      const checks = detectChecks();
+      applyCheckVisuals(checks);
 
       nextTurn();
     }

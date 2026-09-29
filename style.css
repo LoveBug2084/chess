@@ -130,27 +130,22 @@
     .square.light { background: #cccccc; }
     .square.dark  { background: #666666; }
 
-    /* DEFAULT ARM TINT (layer 1b): a permanent 30% wash of the arm owner's
-       colour, drawn OVER the ring. Applied only to squares outside the
-       centre. Sits above the ring (z-index 2) and below the piece (4). */
+    /* LAYER 2: the arm tint */
     .square.arm-tint::before {
       content: '';
       position: absolute;
       inset: 0;
-      z-index: 3;            /* above the ring, below the piece */
+      z-index: 2;
       background: var(--tint-color, transparent);
       opacity: 0.3;
       pointer-events: none;
     }
 
-    /* LAYER 2: colour highlight overlay — ABOVE the square, BELOW the ring.
-       Colour is set inline via the --overlay-color custom property.
-       Hidden unless the square is .selected or .hover-dest.
-       This is the TEMPORARY move highlight at 60%. */
+    /* LAYER 3: colour highlight overlay — ABOVE the square and tint */
     .square .overlay {
       position: absolute;
       inset: 0;
-      z-index: 1;            /* above the square background, below the ring */
+      z-index: 3;
       background: var(--overlay-color, transparent);
       opacity: 0.6;
       pointer-events: none;
@@ -163,7 +158,7 @@
     /* Highlight hovered destination square */
     .square.hover-dest .overlay { display: block; }
 
-    /* LAYER 4: the chess sprite — always on top */
+    /* LAYER 4: the chess sprite */
     .piece {
       width: 100%;
       height: 100%;
@@ -182,7 +177,7 @@
       content: '';
       position: absolute;
       inset: 2%;
-      z-index: 2;
+      z-index: 5;
       border-radius: 50%;
       -webkit-mask: radial-gradient(circle, transparent 58%, #000 62%);
       mask: radial-gradient(circle, transparent 58%, #000 62%);
@@ -196,9 +191,10 @@
 
     /* CHECK: single pulse animation shared with ghost piece */
     @keyframes pulse-flash {
-      0%   { opacity: 1; }
-      50%  { opacity: 0; }
-      100% { opacity: 1; }
+      0%    { opacity: 0; }
+      25%   { opacity: 1; }
+      75%   { opacity: 1; }
+      100%  { opacity: 0; }
     }
 
     .piece.ghost {

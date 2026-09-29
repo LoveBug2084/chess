@@ -158,30 +158,30 @@
     /* Highlight hovered destination square */
     .square.hover-dest .overlay { display: block; }
 
-    /* LAYER 4: the chess sprite */
-    .piece {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      background-image: url('img/sprites.png');
-      background-repeat: no-repeat;
-      pointer-events: none;  /* squares handle all clicks */
-    }
-
-    /* UNIFIED RING STRUCTURE (shared by en passant, check king, check attacker) */
+    /* LAYER 4: UNIFIED RING STRUCTURE (shared by en passant, check king, check attacker) */
     .square.ep-flagged::after,
     .square.in-check::after,
     .square.checking::after {
       content: '';
       position: absolute;
       inset: 2%;
-      z-index: 5;
+      z-index: 4;
       border-radius: 50%;
       -webkit-mask: radial-gradient(circle, transparent 58%, #000 62%);
       mask: radial-gradient(circle, transparent 58%, #000 62%);
       pointer-events: none;
+    }
+
+    /* LAYER 5: the chess sprite */
+    .piece {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      background-image: url('img/sprites.png');
+      background-repeat: no-repeat;
+      pointer-events: none;  /* squares handle all clicks */
     }
 
     /* EN PASSANT FLAG MARKER: multi-flag conic gradient segments */

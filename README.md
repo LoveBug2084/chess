@@ -595,6 +595,17 @@ square (king square → queen), in the pawn's own colour.
 - **Check prevention:** `pieceRules.js` now prevents the king from moving into check, and prevents castling out of/through/into check.
 - **Known limitations:** No checkmate/stalemate detection, no turn skip for checkmate.
 
+### Current version (check ring animation & z-index fix)
+
+- **Check ring animation refined:** Pulse animation now holds at 100% opacity for 0.5s (fade in 0.25s → hold 0.5s → fade out 0.25s), replacing the previous 0%→100%→0% cycle.
+- **Z-index layering fix:** Arm-tint (30% wash) was rendering above check rings, dimming them to ~70% opacity. Reordered CSS layers:
+  1. Square background (auto)
+  2. Arm-tint `::before` (z-index: 2)
+  3. Overlay highlight (z-index: 3)
+  4. **Ring `::after` (z-index: 4)** — now above arm-tint
+  5. **Piece `.piece` (z-index: 5)** — now above ring, so piece shows through ring's center hole
+- This ensures check rings, en-passant rings, and ghost pieces all render at full intended opacity regardless of arm ownership.
+
 ---
 
 ## Running

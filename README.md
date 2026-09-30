@@ -163,7 +163,7 @@ In every case:
   king's destination, on the king's side).
 - **The king cannot castle out of, through, or into check.**
 
-**Debug aid:** open the file with `?test=castle` in the URL to load a position
+**Debug aid:** open the file with `?castle` in the URL to load a position
 with each player's king and both rooks on their back rank, all unmoved.
 
 ### En passant
@@ -198,7 +198,7 @@ and persists until something invalidates it.
   the matching flags on every pawn it was linked to clear as well, so no stale
   flag is ever left pointing at an empty square.
 
-**Debug aid:** open the file with `?test=enpassant` in the URL to load a minimal
+**Debug aid:** open the file with `?enpassant` in the URL to load a minimal
 four-pawn position that sets up an en-passant pairing in one move. Flagged
 pawns are ringed in the **creator's player colour**, so a pairing can be seen
 at a glance. Normal play is unaffected — the loader only runs when the
@@ -226,9 +226,9 @@ piece counts are correct from the start.
 
 | Parameter           | What it loads                                                        |
 | ------------------- | -------------------------------------------------------------------- |
-| `?test=enpassant`   | A minimal four-pawn position that sets up an en-passant pairing in one move. |
-| `?test=castle`      | Every player's king and both rooks on their back rank, all unmoved.   |
-| `?test=check`       | South king at G-1 with North queen at G-8 delivering direct check.    |
+| `?enpassant`   | A minimal four-pawn position that sets up an en-passant pairing in one move. |
+| `?castle`      | Every player's king and both rooks on their back rank, all unmoved.   |
+| `?check`       | South king at G-1 with North queen at G-8 delivering direct check.    |
 
 To reset, reload the page (with or without the parameter). Normal play is
 unaffected when no parameter is present.
@@ -316,7 +316,7 @@ pieceRules.js  movement rules for every piece + isLegalDestination
 render.js      drawing, ghost piece, en-passant markers, turn pill
 layout.js      starting layout, labels, DOM build, piece counts display
 moves.js       pick up / drop / click / hover / castling / promotion
-debug.js       ?test=enpassant and ?test=castle loaders
+debug.js       ?enpassant and ?castle loaders
 init.js        sprite sanity check, board setup, start-up calls
 
 ```
@@ -353,7 +353,7 @@ Each file may only use names defined by a file above it in this list.
     Only the partner's flags authorise a capture (the direction is asymmetric).
     Flags persist until a flagged pawn moves or is captured, at which point the
     flag and its reciprocal are both cleared.
-- **Debug test positions:** appending `?test=enpassant` or `?test=castle` to the
+- **Debug test positions:** appending `?enpassant` or `?castle` to the
   URL replaces the starting position with a purpose-built test layout. Flagged
   pawns are ringed in the **creator's player colour** (`.square.ep-flagged`).
   Normal play is unaffected.
@@ -511,7 +511,7 @@ square (king square → queen), in the pawn's own colour.
   matching flags clear; when a flagged pawn is captured (by en passant or any
   normal capture), the same cleanup runs before removal, so no stale flags
   remain.
-- **Debug aid**: `?test=ep` loads a minimal four-pawn position for testing;
+- **Debug aid**: `?enpassant` loads a minimal four-pawn position for testing;
   flagged pawns are ringed in blue.
 
 ### 034
@@ -552,13 +552,13 @@ square (king square → queen), in the pawn's own colour.
   (king moves two squares along its back rank). Requires an unmoved king and an
   unmoved rook on the same rank, with a clear path between them. The rook lands
   on the square the king passed over. Castling is not yet blocked by check
-  (check is not implemented). A `?test=castle` debug position loads each
+  (check is not implemented). A `?castle` debug position loads each
   player's king and both rooks, all unmoved.
 - **Player elimination skip (stop-gap):** `nextTurn()` now skips players with 0 pieces, preventing a softlock when a player loses every piece. This is explicitly **not** an elimination rule — the king is still capturable, so a wipe-out is possible; the skip only keeps the turn loop moving. It will be replaced by proper checkmate/stalemate skipping once those rules are written.
 - **Piece count tracking:** `pieceCounts` now starts at 0 and is incremented by `placePiece()`; counts always match actual pieces on the board.
-- **Debug test restructuring:** Debug mode (`?test=enpassant` / `?test=castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
+- **Debug test restructuring:** Debug mode (`?enpassant` / `?castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
 - **Castle test position:** Now includes both queen-side (D1) and king-side (K1) rooks for South, with `hasMoved = false` on both.
-- **Debug parameter renamed:** `?test=ep` → `?test=enpassant` for clarity.
+- **Debug parameter renamed:** `?ep` → `?enpassant` for clarity.
 - **En passant test:** Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
 - **Castle test:** Places South king + 2 rooks (3 pieces); other players at 0 pieces.
 - **Castling bug fixes:** Fixed bug where hovering a castling square then clicking elsewhere would incorrectly execute castling; castling now only executes when the actual clicked destination is a valid castling square. Fixed missing `boardState[toKey] = heldPiece` assignment that caused pieces to disappear from boardState after moves. Fixed missing `hasMoved = true` for non-pawn pieces, which prevented castling eligibility from updating correctly after moves.
@@ -573,7 +573,7 @@ square (king square → queen), in the pawn's own colour.
   plain-script, shared-global model and the dependency order. Added **Controls**,
   **Castling**, **Non-pawn pieces**, **Debug / Testing**, **Known limitations**,
   and **Turn skipping (stop-gap)** sections. Reconciled the `?test=ep` /
-  `?test=enpassant` naming. Corrected the "row 0 = 1" error (row 0 is row 14).
+  `?test=enpassant` → `?enpassant` naming. Corrected the "row 0 = 1" error (row 0 is row 14).
   Corrected the implementation status table: castling, ghost piece, en-passant
   ring markers and non-pawn movement are marked done; "king capture /
   elimination" is replaced by an accurate "check / checkmate / king safety —
@@ -591,7 +591,7 @@ square (king square → queen), in the pawn's own colour.
 
 - **Check detection implemented:** New `check.js` module detects all checks on the board after each move using existing movement rules from `pieceRules.js`.
 - **Visual feedback:** King's square and attacker's square flash in the attacker's colour (1s pulse animation matching ghost piece).
-- **Check test position:** `?test=check` loads South king at G-1 with North queen at G-8 delivering direct vertical check.
+- **Check test position:** `?check` loads South king at G-1 with North queen at G-8 delivering direct vertical check.
 - **Integration:** Check detection runs in `dropOn()` after each move; visuals cleared on `pickUp()` and `cancelMove()`.
 - **Check prevention:** `pieceRules.js` now prevents the king from moving into check, and prevents castling out of/through/into check.
 - **Known limitations:** No checkmate/stalemate detection, no turn skip for checkmate.
@@ -619,6 +619,6 @@ square (king square → queen), in the pawn's own colour.
 1. Place `sprites.png` in an `img/` folder next to the HTML file.
 2. Open the HTML file in any modern browser.
 3. No server or build step is required.
-4. To test en passant, append the url with ?test=enpassant
-5. To test castling, append the url with ?test=castle
-6. To test check detection, append the url with ?test=check
+4. To test en passant, append the url with ?enpassant
+5. To test castling, append the url with ?castle
+6. To test check detection, append the url with ?check

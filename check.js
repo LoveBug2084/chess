@@ -1,8 +1,8 @@
 /* ------------------------------------------------------------------ *
- *  CHECK DETECTION
+ *  CHECK DETECTION & VISUALS
  *
- *  Determines which kings are in check and by which pieces.
- *  Uses existing movement rules from pieceRules.js.
+ *  Uses check logic from pieceRules.js (exported via window.*).
+ *  This module handles only detection + visual feedback.
  * ------------------------------------------------------------------ */
 
 // Get all kings on the board with their side, colour, and position
@@ -21,107 +21,6 @@ function getAllKings() {
     }
   }
   return kings;
-}
-
-// Check if a piece of given colour can legally move from (fr,fc) to (tr,tc)
-// Uses the same logic as isLegalDestination but without UI state
-function canPieceCapture(piece, fr, fc, tr, tc, targetColour) {
-  if (!isBoard(tr, tc)) return false;
-  if (piece.colour === targetColour) return false; // friendly
-
-  const dr = tr - fr, dc = tc - fc;
-  const absDr = Math.abs(dr), absDc = Math.abs(dc);
-  const dist = absDr + absDc;
-
-  // Pawn captures
-  if (piece.pieceType === 'pawn') {
-    const isDiagonal = (absDr === 1 && absDc === 1);
-    const o = SIDE_ORIENTATION[piece.side];
-    if (!o) return false;
-
-    if (!inCentre(fr, fc)) {
-      // In an arm: facing direction depends on whose arm
-      const arm = armOf(fr, fc);
-      const f = armFacing(piece.side, arm);
-      if (!f) return false;
-
-      if (isDiagonal) {
-        const diags = diagonalsFlanking(f);
-        return diags.some(([a, b]) => dr === a && dc === b);
-      }
-      return false; // pawns only capture diagonally
-    } else {
-      // In centre: forward diagonals only
-      const diags = centreCaptureDiagonals(piece.side);
-      return diags.some(([a, b]) => dr === a && dc === b);
-    }
-  }
-
-  // Rook: horizontal/vertical sliding
-  if (piece.pieceType === 'rook') {
-    if (fr !== tr && fc !== tc) return false;
-    const rowStep = fr === tr ? 0 : (tr > fr ? 1 : -1);
-    const colStep = fc === tc ? 0 : (tc > fc ? 1 : -1);
-    let r = fr + rowStep, c = fc + colStep;
-    while (!(r === tr && c === tc)) {
-      if (boardState[r + ',' + c]) return false; // blocked
-      r += rowStep; c += colStep;
-    }
-    return true;
-  }
-
-  // Bishop: diagonal sliding
-  if (piece.pieceType === 'bishop') {
-    if (absDr !== absDc || dist === 0) return false;
-    const rowStep = dr > 0 ? 1 : -1;
-    const colStep = dc > 0 ? 1 : -1;
-    let r = fr + rowStep, c = fc + colStep;
-    while (!(r === tr && c === tc)) {
-      if (boardState[r + ',' + c]) return false;
-      r += rowStep; c += colStep;
-    }
-    return true;
-  }
-
-  // Queen: rook + bishop
-  if (piece.pieceType === 'queen') {
-    if (fr !== tr && fc !== tc && absDr !== absDc) return false;
-    const rowStep = fr === tr ? 0 : (tr > fr ? 1 : -1);
-    const colStep = fc === tc ? 0 : (tc > fc ? 1 : -1);
-    let r = fr + rowStep, c = fc + colStep;
-    while (!(r === tr && c === tc)) {
-      if (boardState[r + ',' + c]) return false;
-      r += rowStep; c += colStep;
-    }
-    return true;
-  }
-
-  // Knight: L-shape jump
-  if (piece.pieceType === 'knight') {
-    return (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2);
-  }
-
-  // King: one square any direction
-  if (piece.pieceType === 'king') {
-    return absDr <= 1 && absDc <= 1 && dist !== 0;
-  }
-
-  return false;
-}
-
-// Get all pieces of a given colour that attack the target square
-// targetColour is the colour of the piece on the target square (e.g., the king)
-function getAttackers(tr, tc, byColour, targetColour) {
-  const attackers = [];
-  for (const key in boardState) {
-    const piece = boardState[key];
-    if (!piece || piece.colour !== byColour) continue;
-    const [fr, fc] = key.split(',').map(Number);
-    if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
-      attackers.push({ piece, r: fr, c: fc, colour: byColour });
-    }
-  }
-  return attackers;
 }
 
 // Detect all checks on the board
@@ -147,87 +46,22 @@ function detectChecks() {
   return checks; // { side: { king, attackers[] } }
 }
 
-// Check if the king of the given side is checkmated
-// (in check AND has no legal moves - simplified check)
-function isCheckmated(kingSide) {
-  // Find king side colour - safely handle missing PLAYERS entry
-  const kingInfo = PLAYERS.find(p => p.key === kingSide);
-  if (!kingInfo) return false;
-  const kingColour = kingInfo.colour;
-  
-  // 1. King must be in check
-  if (!isKingInCheck(kingSide, null)) return false;
-  
-  // 2. Simplified: check if king has any legal moves by trying its possible moves
-  const [kr, kc] = getKingPosition(kingSide);
-  if (!kr) return false;
-  
-  // Try all 8 king move directions
-  const kingDirections = [
-    [-1, -1], [-1, 0], [-1, 1],
-    [0, -1],           [0, 1],
-    [1, -1],  [1, 0],  [1, 1]
-  ];
-  
-  for (const [dr, dc] of kingDirections) {
-    const tr = kr + dr, tc = kc + dc;
-    if (!isBoard(tr, tc)) continue;
-    
-    // Check if this king move is legal (not into check, not friendly)
-    for (const player of PLAYERS) {
-      if (player.colour !== kingColour) continue;
-      // Check if any piece can capture this square
-      // Simplified: if square not occupied by friendly, might be legal
-      const squareKey = tr + ',' + tc;
-      if (boardState[squareKey] && boardState[squareKey].colour === kingColour) continue;
-      // If we get here, this king move might be legal
-      return false; // king has a legal move, not checkmated
-    }
-  }
-  
-  // No legal king moves found - potentially checkmated
-  // (We're not checking other pieces here, so this is a partial check)
-  return true;
-}
-
-// Get king position for a given side
-function getKingPosition(kingSide) {
+// Get all pieces of a given colour that attack the target square
+// Uses the shared canPieceCapture from pieceRules.js
+function getAttackers(tr, tc, byColour, targetColour) {
+  const attackers = [];
   for (const key in boardState) {
     const piece = boardState[key];
-    if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
-      const [r, c] = key.split(',').map(Number);
-      return { r, c };
+    if (!piece || piece.colour !== byColour) continue;
+    const [fr, fc] = key.split(',').map(Number);
+    if (window.canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
+      attackers.push({ piece, r: fr, c: fc, colour: byColour });
     }
   }
-  return null;
-}
-
-// Check if the king of the given side is stalemated
-// (NOT in check AND has no legal moves)
-function isStalemated(kingSide) {
-  return !isKingInCheck(kingSide, null) && !hasAnyLegalMoves(kingSide);
-}
-
-// Check if any piece of the given side has a legal move
-function hasAnyLegalMoves(kingSide) {
-  // Simple check: if king has any legal moves, return true
-  // In full implementation, would check all pieces
-  return !isCheckmated(kingSide); // fallback
+  return attackers;
 }
 
 // Visual feedback for check.
-//
-// ORDERING MATTERS HERE. The pulse animation lives on the ::after
-// pseudo-element and is started by adding the `.in-check` / `.checking`
-// class. The ring's colour comes from a custom property
-// (--check-ring-gradient / --check-color), and custom properties are NOT
-// animatable — the animation does not restart when they change. So the
-// property must already be in place when the class is added; if the
-// class lands first, the animation starts against an empty background
-// and you see a half-strength pulse caught mid-cycle. Set colour first,
-// class second. Do NOT read offsetWidth between them: the forced reflow
-// makes the browser paint the class-without-colour state, which is
-// exactly the frame-timing bug we are avoiding.
 function applyCheckVisuals(checks) {
   // Clear previous. Delegated to clearCheckVisuals() so the clear step
   // can never drift out of sync with the apply step below.

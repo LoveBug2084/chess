@@ -12,12 +12,12 @@ sprite.onerror = () => console.error('Sprite sheet not found: img/sprites.png');
 sprite.src = 'img/sprites.png';
 
 // Check debug mode FIRST, before placing any pieces
-const testParam = new URLSearchParams(location.search).get('test');
-if (testParam === 'enpassant') {
+const params = new URLSearchParams(location.search);
+if (params.has('enpassant')) {
   loadEnPassantTest();
-} else if (testParam === 'castle') {
+} else if (params.has('castle')) {
   loadCastleTest();
-} else if (testParam === 'check') {
+} else if (params.has('check')) {
   loadCheckTest();
 } else {
   setupNormalBoard();

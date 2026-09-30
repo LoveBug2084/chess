@@ -31,15 +31,29 @@
     }
 
     function nextTurn() {
-      // Advance to the next player who still has pieces and is not checkmated.
+      // Advance to the next player who still has pieces and is not checkmated/stalemated.
       // Players with 0 pieces are eliminated and skipped.
-      // Players checkmated are also skipped (game end condition).
+      // Players checkmated or stalemated are also skipped (game end condition).
+      console.log('DEBUG nextTurn called, current turnIndex:', turnIndex, 'player:', PLAYERS[turnIndex]?.key);
+      let safetyCounter = 0;
       do {
         turnIndex = (turnIndex + 1) % PLAYERS.length;
+        safetyCounter++;
+        if (safetyCounter > 20) {
+          console.error('DEBUG nextTurn: infinite loop detected! turnIndex:', turnIndex);
+          break;
+        }
+        const player = PLAYERS[turnIndex];
+        const count = pieceCounts[player.colour];
+        const checkmated = isCheckmated(player.key);
+        const stalemated = isStalemated(player.key);
+        console.log('DEBUG nextTurn check:', { turnIndex, key: player.key, count, checkmated, stalemated });
       } while (
         pieceCounts[PLAYERS[turnIndex].colour] === 0 ||
-        isCheckmated(PLAYERS[turnIndex].side)
+        isCheckmated(PLAYERS[turnIndex].key) ||
+        isStalemated(PLAYERS[turnIndex].key)
       );
+      console.log('DEBUG nextTurn finished, new turnIndex:', turnIndex, 'player:', PLAYERS[turnIndex]?.key);
       renderTurn();
     }
 

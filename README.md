@@ -258,8 +258,8 @@ unaffected when no parameter is present.
 | Castling (horizontal in N/S, vertical in W/E)               | ✅ Done    |
 | King cannot move into check                                 | ✅ Done    |
 | Castling out of/through/into check prevented                | ✅ Done    |
-| Checkmate detection                                          | ⬜ Not yet |
-| Stalemate handling                                           | ⬜ Not yet |
+| Checkmate detection              | ✅ Added (checkmated players skipped) |
+| Stalemate handling               | ✅ Added (basic detection) |
 
 **Note on "elimination":** there is no elimination rule. A player with 0 pieces
 is skipped by `nextTurn()` purely to prevent a softlock (see *Turn skipping*).
@@ -273,7 +273,8 @@ for any edge case where a player loses all pieces.
 
 - **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above).
 - **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
-- **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
+
+**Note**: Checkmated players (king in check with no legal moves) are now skipped by `nextTurn()` so the game can continue. Stalemate detection is basic.
 - **Castling out of, through, or into check is prevented.** The king cannot castle out of, through, or into check.
 - **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
 

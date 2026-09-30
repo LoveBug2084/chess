@@ -31,11 +31,15 @@
     }
 
     function nextTurn() {
-      // Advance to the next player who still has pieces.
+      // Advance to the next player who still has pieces and is not checkmated.
       // Players with 0 pieces are eliminated and skipped.
+      // Players checkmated are also skipped (game end condition).
       do {
         turnIndex = (turnIndex + 1) % PLAYERS.length;
-      } while (pieceCounts[PLAYERS[turnIndex].colour] === 0);
+      } while (
+        pieceCounts[PLAYERS[turnIndex].colour] === 0 ||
+        isCheckmated(PLAYERS[turnIndex].side)
+      );
       renderTurn();
     }
 

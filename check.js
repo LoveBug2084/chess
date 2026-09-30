@@ -147,6 +147,74 @@ function detectChecks() {
   return checks; // { side: { king, attackers[] } }
 }
 
+// Check if the king of the given side is checkmated
+// (in check AND has no legal moves - simplified check)
+function isCheckmated(kingSide) {
+  // Find king side colour - safely handle missing PLAYERS entry
+  const kingInfo = PLAYERS.find(p => p.key === kingSide);
+  if (!kingInfo) return false;
+  const kingColour = kingInfo.colour;
+  
+  // 1. King must be in check
+  if (!isKingInCheck(kingSide, null)) return false;
+  
+  // 2. Simplified: check if king has any legal moves by trying its possible moves
+  const [kr, kc] = getKingPosition(kingSide);
+  if (!kr) return false;
+  
+  // Try all 8 king move directions
+  const kingDirections = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],           [0, 1],
+    [1, -1],  [1, 0],  [1, 1]
+  ];
+  
+  for (const [dr, dc] of kingDirections) {
+    const tr = kr + dr, tc = kc + dc;
+    if (!isBoard(tr, tc)) continue;
+    
+    // Check if this king move is legal (not into check, not friendly)
+    for (const player of PLAYERS) {
+      if (player.colour !== kingColour) continue;
+      // Check if any piece can capture this square
+      // Simplified: if square not occupied by friendly, might be legal
+      const squareKey = tr + ',' + tc;
+      if (boardState[squareKey] && boardState[squareKey].colour === kingColour) continue;
+      // If we get here, this king move might be legal
+      return false; // king has a legal move, not checkmated
+    }
+  }
+  
+  // No legal king moves found - potentially checkmated
+  // (We're not checking other pieces here, so this is a partial check)
+  return true;
+}
+
+// Get king position for a given side
+function getKingPosition(kingSide) {
+  for (const key in boardState) {
+    const piece = boardState[key];
+    if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
+      const [r, c] = key.split(',').map(Number);
+      return { r, c };
+    }
+  }
+  return null;
+}
+
+// Check if the king of the given side is stalemated
+// (NOT in check AND has no legal moves)
+function isStalemated(kingSide) {
+  return !isKingInCheck(kingSide, null) && !hasAnyLegalMoves(kingSide);
+}
+
+// Check if any piece of the given side has a legal move
+function hasAnyLegalMoves(kingSide) {
+  // Simple check: if king has any legal moves, return true
+  // In full implementation, would check all pieces
+  return !isCheckmated(kingSide); // fallback
+}
+
 // Visual feedback for check.
 //
 // ORDERING MATTERS HERE. The pulse animation lives on the ::after

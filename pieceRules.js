@@ -337,11 +337,47 @@
       const occupant = boardState[tr + ',' + tc];
 
 // A piece may never land on a friendly piece (applies to every piece).
-       // After this check, any remaining occupant is an enemy.
-       if (occupant && occupant.colour === heldPiece.colour) return false;
-       if (occupant && occupant.pieceType === 'king') return false;
+        // After this check, any remaining occupant is an enemy.
+        if (occupant && occupant.colour === heldPiece.colour) return false;
+        if (occupant && occupant.pieceType === 'king') return false;
 
-      // Pawns follow their full movement rules. The pawn itself is passed
+        // For non-king pieces: simulate the move and check if own king would be in check.
+        // This prevents discovered check (moving a piece that was shielding the king).
+        if (heldPiece.pieceType !== 'king') {
+          const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
+          const kingSide = heldPiece.side;
+          const fromKey = fr + ',' + fc;
+          const toKey = tr + ',' + tc;
+
+          // Handle en passant capture specially - captured pawn is on partner square, not destination.
+          let epCaptureData = null;
+          if (heldPiece.pieceType === 'pawn') {
+            const flag = heldPiece.enPassantFlags?.find(f => f.skippedR === tr && f.skippedC === tc);
+            if (flag) {
+              const capKey = flag.r + ',' + flag.c;
+              const capPiece = boardState[capKey];
+              if (capPiece) {
+                epCaptureData = { key: capKey, piece: capPiece };
+                delete boardState[capKey];
+              }
+            }
+          }
+
+          // Simulate the move. heldPiece is in hand (not in boardState during hover/pickup),
+          // so we place it on the destination directly.
+          boardState[toKey] = heldPiece;
+
+          // Check if king is in check after the simulated move.
+          const inCheck = isKingInCheck(kingSide, null);
+
+          // Revert simulation.
+          delete boardState[toKey];
+          if (epCaptureData) boardState[epCaptureData.key] = epCaptureData.piece;
+
+          if (inCheck) return false;
+        }
+
+        // Pawns follow their full movement rules. The pawn itself is passed
       // in, because it is in hand (removed from boardState) and its
       // en-passant flags must be readable.
       if (heldPiece.pieceType === 'pawn') {

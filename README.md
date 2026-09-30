@@ -271,10 +271,10 @@ for any edge case where a player loses all pieces.
 
 ## Known limitations
 
-- **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above). There is still no check, no checkmate, and no rule preventing a move that leaves your own king attacked.
+- **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above).
 - **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
 - **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
-- **Castling into/through/out of check is prevented.** The king cannot castle out of, through, or into check.
+- **Castling out of, through, or into check is prevented.** The king cannot castle out of, through, or into check.
 - **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
 
 ### Intended direction
@@ -605,6 +605,11 @@ square (king square → queen), in the pawn's own colour.
   4. **Ring `::after` (z-index: 4)** — now above arm-tint
   5. **Piece `.piece` (z-index: 5)** — now above ring, so piece shows through ring's center hole
 - This ensures check rings, en-passant rings, and ghost pieces all render at full intended opacity regardless of arm ownership.
+
+### Current version (check move prevention bug fix)
+
+- **Fixed king move-into-check bug:** `isSquareAttacked()` in `pieceRules.js` was passing the attacker's colour instead of the target king's colour to `canPieceCapture()`, causing the check test to always return false. The king could illegally move into check. Fixed by adding `targetColour` parameter to `isSquareAttacked()` and updating all 5 call sites (normal move, castling path checks, `isKingInCheck`).
+- **Updated Known limitations:** Removed outdated claim that "no rule prevents a move that leaves your own king attacked" — that rule now works.
 
 ---
 

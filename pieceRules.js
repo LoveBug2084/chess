@@ -182,12 +182,13 @@
     }
 
     // Check if any enemy piece of the given colour attacks (tr,tc)
-    function isSquareAttacked(tr, tc, byColour) {
+    // targetColour = the colour of the piece on (tr,tc) (e.g. the king)
+    function isSquareAttacked(tr, tc, byColour, targetColour) {
       for (const key in boardState) {
         const piece = boardState[key];
         if (!piece || piece.colour !== byColour) continue;
         const [fr, fc] = key.split(',').map(Number);
-        if (canPieceCapture(piece, fr, fc, tr, tc, byColour)) {
+        if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
           return true;
         }
       }
@@ -217,7 +218,7 @@
       // Check against all three opponent colours
       for (const player of PLAYERS) {
         if (player.colour === kingColour) continue;
-        if (isSquareAttacked(kr, kc, player.colour)) return true;
+        if (isSquareAttacked(kr, kc, player.colour, kingColour)) return true;
       }
       return false;
     }
@@ -439,7 +440,7 @@
           // Cannot move into check
           for (const player of PLAYERS) {
             if (player.colour === kingColour) continue;
-            if (isSquareAttacked(tr, tc, player.colour)) return false;
+            if (isSquareAttacked(tr, tc, player.colour, kingColour)) return false;
           }
           return true;
         }
@@ -474,7 +475,7 @@
                 for (let r = fr + step; r !== tr + step; r += step) {
                   for (const player of PLAYERS) {
                     if (player.colour === kingColour) continue;
-                    if (isSquareAttacked(r, fc, player.colour)) { safe = false; break; }
+                    if (isSquareAttacked(r, fc, player.colour, kingColour)) { safe = false; break; }
                   }
                   if (!safe) break;
                 }
@@ -508,7 +509,7 @@
                 for (let c = fc + step; c !== tc + step; c += step) {
                   for (const player of PLAYERS) {
                     if (player.colour === kingColour) continue;
-                    if (isSquareAttacked(fr, c, player.colour)) { safe = false; break; }
+                    if (isSquareAttacked(fr, c, player.colour, kingColour)) { safe = false; break; }
                   }
                   if (!safe) break;
                 }

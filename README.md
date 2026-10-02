@@ -226,9 +226,9 @@ piece counts are correct from the start.
 
 | Parameter           | What it loads                                                        |
 | ------------------- | -------------------------------------------------------------------- |
-| `?enpassant`   | A minimal four-pawn position that sets up an en-passant pairing in one move. |
-| `?castle`      | Every player's king and both rooks on their back rank, all unmoved.   |
-| `?check`       | South king at G-1 with North queen at G-8 delivering direct check.    |
+| `?enpassant`        | A minimal four-pawn position that sets up an en-passant pairing in one move.   |
+| `?castle`           | Every player's king and both rooks on their back rank, all unmoved.            |
+| `?check`            | South king at G-1 with North queen at G-8 delivering direct check.             |
 
 To reset, reload the page (with or without the parameter). Normal play is
 unaffected when no parameter is present.
@@ -258,8 +258,8 @@ unaffected when no parameter is present.
 | Castling (horizontal in N/S, vertical in W/E)               | ✅ Done    |
 | King cannot move into check                                 | ✅ Done    |
 | Castling out of/through/into check prevented                | ✅ Done    |
-| Checkmate detection              | ✅ Added (checkmated players skipped) |
-| Stalemate handling               | ✅ Added (basic detection) |
+| Checkmate detection                                          | ⬜ Not yet |
+| Stalemate handling                                           | ⬜ Not yet |
 
 **Note on "elimination":** there is no elimination rule. A player with 0 pieces
 is skipped by `nextTurn()` purely to prevent a softlock (see *Turn skipping*).
@@ -273,8 +273,7 @@ for any edge case where a player loses all pieces.
 
 - **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above).
 - **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
-
-**Note**: Checkmated players (king in check with no legal moves) are now skipped by `nextTurn()` so the game can continue. Stalemate detection is basic.
+- **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
 - **Castling out of, through, or into check is prevented.** The king cannot castle out of, through, or into check.
 - **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
 
@@ -311,12 +310,12 @@ style.css      all styling (board, pieces, overlays, en-passant ring)
 config.js      sprite layout, palette, colour maths, PLAYERS
 geometry.js    board shape, arms, promotion squares
 state.js       boardState, in-hand variables, pieceCounts
-flags.js       en-passant flag helpers
+enPassantFlags.js    en-passant flag helpers
 pieceRules.js  movement rules for every piece + isLegalDestination
 render.js      drawing, ghost piece, en-passant markers, turn pill
 layout.js      starting layout, labels, DOM build, piece counts display
 moves.js       pick up / drop / click / hover / castling / promotion
-debug.js       ?enpassant and ?castle loaders
+debug.js       ?enpassant ?castle ?check loaders
 init.js        sprite sanity check, board setup, start-up calls
 
 ```
@@ -558,7 +557,7 @@ square (king square → queen), in the pawn's own colour.
 - **Piece count tracking:** `pieceCounts` now starts at 0 and is incremented by `placePiece()`; counts always match actual pieces on the board.
 - **Debug test restructuring:** Debug mode (`?enpassant` / `?castle`) now runs **before** normal board setup in init.js, so only ONE board is built and piece counts are correct from the start.
 - **Castle test position:** Now includes both queen-side (D1) and king-side (K1) rooks for South, with `hasMoved = false` on both.
-- **Debug parameter renamed:** `?ep` → `?enpassant` for clarity.
+- **Debug parameter renamed:** `?test=ep` → `?enpassant` for clarity.
 - **En passant test:** Places 1 pawn per player (4 total) so all players have a move; `pieceCounts` reset to 0 before placement.
 - **Castle test:** Places South king + 2 rooks (3 pieces); other players at 0 pieces.
 - **Castling bug fixes:** Fixed bug where hovering a castling square then clicking elsewhere would incorrectly execute castling; castling now only executes when the actual clicked destination is a valid castling square. Fixed missing `boardState[toKey] = heldPiece` assignment that caused pieces to disappear from boardState after moves. Fixed missing `hasMoved = true` for non-pawn pieces, which prevented castling eligibility from updating correctly after moves.
@@ -572,8 +571,8 @@ square (king square → queen), in the pawn's own colour.
   onwards, 12 files). Added a **Files and load order** section documenting the
   plain-script, shared-global model and the dependency order. Added **Controls**,
   **Castling**, **Non-pawn pieces**, **Debug / Testing**, **Known limitations**,
-  and **Turn skipping (stop-gap)** sections. Reconciled the `?test=ep` /
-  `?test=enpassant` → `?enpassant` naming. Corrected the "row 0 = 1" error (row 0 is row 14).
+  and **Turn skipping (stop-gap)** sections. Reconciled the `?test=ep` / `?enpassant` /
+  naming. Corrected the "row 0 = 1" error (row 0 is row 14).
   Corrected the implementation status table: castling, ghost piece, en-passant
   ring markers and non-pawn movement are marked done; "king capture /
   elimination" is replaced by an accurate "check / checkmate / king safety —
@@ -611,6 +610,12 @@ square (king square → queen), in the pawn's own colour.
 
 - **Fixed king move-into-check bug:** `isSquareAttacked()` in `pieceRules.js` was passing the attacker's colour instead of the target king's colour to `canPieceCapture()`, causing the check test to always return false. The king could illegally move into check. Fixed by adding `targetColour` parameter to `isSquareAttacked()` and updating all 5 call sites (normal move, castling path checks, `isKingInCheck`).
 - **Updated Known limitations:** Removed outdated claim that "no rule prevents a move that leaves your own king attacked" — that rule now works.
+
+### Current version (en passant flags renamed)
+
+- **Renamed `flags.js` → `enPassantFlags.js`** for clarity (the module only handles en passant flags).
+- Updated `index.html` script reference and `README.md` file listing.
+- No functional changes — same flag system, same global functions.
 
 ---
 

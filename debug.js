@@ -30,12 +30,12 @@
  *      and the turn order can never softlock on North's turn.
  *
  *  Turn order: South → West → North → East
-*  Usage:
-*    1. Open index.html?enpassant
-*    2. South moves G-12 -> G-10 (two squares). This creates the pairing.
-*    3. West's turn: F-10 -> G-11 captures en passant (South removed).
-*       (Or wait for East: H-10 -> G-11 — either may capture.)
-*    4. Reload with ?enpassant to reset.
+ *  Usage:
+ *    1. Open index.html?enpassant
+ *    2. South moves G-12 -> G-10 (two squares). This creates the pairing.
+ *    3. West's turn: F-10 -> G-11 captures en passant (South removed).
+ *       (Or wait for East: H-10 -> G-11 — either may capture.)
+ *    4. Reload with ?enpassant to reset.
  * ------------------------------------------------------------------ */
 function loadEnPassantTest() {
   // Wipe every piece currently on the board.
@@ -165,10 +165,10 @@ function loadCastleTest() {
  *  South king at G-1 (13,6), North queen at G-8 (5,6) on same file.
  *  North queen attacks south king vertically.
  *
-*  Usage:
-*    1. Open index.html?check
-*    2. South king at G-1 should flash in North's colour
-*    3. North queen at G-8 should flash in North's colour
+ *  Usage:
+ *    1. Open index.html?check
+ *    2. South king at G-1 should flash in North's colour
+ *    3. North queen at G-8 should flash in North's colour
  * ------------------------------------------------------------------ */
 function loadCheckTest() {
   for (const key in boardState) {

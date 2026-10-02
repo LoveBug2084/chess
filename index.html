@@ -51,13 +51,13 @@ pieceRules      piece rules + isLegalDestination    (needs geometry,
          layout    starting layout + DOM build        (needs render + the
                                                        click handlers)
          moves     pick up / drop / click / hover     (needs most of the above)
-         debug     ?enpassant / ?castle / ?check loader  (needs render, state)
+         debug     ?enpassant ?castle ?check loaders                    (needs render, state)
          init      sprite check + start-up calls      (needs render)
        * ------------------------------------------------------------------ -->
   <script src="config.js"></script>
   <script src="geometry.js"></script>
   <script src="state.js"></script>
-  <script src="flags.js"></script>
+  <script src="enPassantFlags.js"></script>
   <script src="pieceRules.js"></script>
   <script src="check.js"></script>
   <script src="render.js"></script>

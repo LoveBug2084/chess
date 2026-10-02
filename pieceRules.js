@@ -198,14 +198,7 @@
     // Check if the king's own side is currently in check
     // If kingPos is provided, use it (for when king is in hand); otherwise search boardState
     function isKingInCheck(kingSide, kingPos) {
-      console.log('DEBUG isKingInCheck called with:', { kingSide, kingPos, PLAYERS: PLAYERS.map(p => p.key) });
-      const player = PLAYERS.find(p => p.key === kingSide);
-      console.log('DEBUG PLAYERS.find result:', player);
-      if (!player) {
-        console.error('ERROR: PLAYERS.find returned undefined for kingSide:', kingSide);
-        return false;
-      }
-      const kingColour = player.colour;
+      const kingColour = PLAYERS.find(p => p.key === kingSide).colour;
       let kr, kc;
       if (kingPos) {
         kr = kingPos.r; kc = kingPos.c;
@@ -220,10 +213,7 @@
             break;
           }
         }
-        if (!found) {
-          console.log('DEBUG: No king found for side', kingSide, 'returning false');
-          return false;
-        }
+        if (!found) return false;
       }
       // Check against all three opponent colours
       for (const player of PLAYERS) {
@@ -347,47 +337,11 @@
       const occupant = boardState[tr + ',' + tc];
 
 // A piece may never land on a friendly piece (applies to every piece).
-        // After this check, any remaining occupant is an enemy.
-        if (occupant && occupant.colour === heldPiece.colour) return false;
-        if (occupant && occupant.pieceType === 'king') return false;
+       // After this check, any remaining occupant is an enemy.
+       if (occupant && occupant.colour === heldPiece.colour) return false;
+       if (occupant && occupant.pieceType === 'king') return false;
 
-        // For non-king pieces: simulate the move and check if own king would be in check.
-        // This prevents discovered check (moving a piece that was shielding the king).
-        if (heldPiece.pieceType !== 'king') {
-          const fr = +fromSq.dataset.row, fc = +fromSq.dataset.col;
-          const kingSide = heldPiece.side;
-          const fromKey = fr + ',' + fc;
-          const toKey = tr + ',' + tc;
-
-          // Handle en passant capture specially - captured pawn is on partner square, not destination.
-          let epCaptureData = null;
-          if (heldPiece.pieceType === 'pawn') {
-            const flag = heldPiece.enPassantFlags?.find(f => f.skippedR === tr && f.skippedC === tc);
-            if (flag) {
-              const capKey = flag.r + ',' + flag.c;
-              const capPiece = boardState[capKey];
-              if (capPiece) {
-                epCaptureData = { key: capKey, piece: capPiece };
-                delete boardState[capKey];
-              }
-            }
-          }
-
-          // Simulate the move. heldPiece is in hand (not in boardState during hover/pickup),
-          // so we place it on the destination directly.
-          boardState[toKey] = heldPiece;
-
-          // Check if king is in check after the simulated move.
-          const inCheck = isKingInCheck(kingSide, null);
-
-          // Revert simulation.
-          delete boardState[toKey];
-          if (epCaptureData) boardState[epCaptureData.key] = epCaptureData.piece;
-
-          if (inCheck) return false;
-        }
-
-        // Pawns follow their full movement rules. The pawn itself is passed
+      // Pawns follow their full movement rules. The pawn itself is passed
       // in, because it is in hand (removed from boardState) and its
       // en-passant flags must be readable.
       if (heldPiece.pieceType === 'pawn') {
@@ -570,82 +524,3 @@
       // No known piece type: free move (any distance / direction) for now.
       return true;
     }
-
-    // Get king position for a given side
-    function getKingPosition(kingSide) {
-      for (const key in boardState) {
-        const piece = boardState[key];
-        if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
-          const [r, c] = key.split(',').map(Number);
-          return { r, c };
-        }
-      }
-      return null;
-    }
-
-    // Check if king of given side has any legal moves (8 adjacent squares)
-    // Used for checkmate/stalemate detection (MVP: king-only moves)
-    function hasKingLegalMoves(kingSide) {
-      const kingPos = getKingPosition(kingSide);
-      if (!kingPos) return false;
-      const { r: kr, c: kc } = kingPos;
-      const kingColour = PLAYERS.find(p => p.key === kingSide).colour;
-
-      const kingDirections = [
-        [-1, -1], [-1, 0], [-1, 1],
-        [0, -1],           [0, 1],
-        [1, -1],  [1, 0],  [1, 1]
-      ];
-
-      for (const [dr, dc] of kingDirections) {
-        const tr = kr + dr, tc = kc + dc;
-        if (!isBoard(tr, tc)) continue;
-
-        const squareKey = tr + ',' + tc;
-        const occupant = boardState[squareKey];
-        if (occupant && occupant.colour === kingColour) continue; // blocked by own piece
-
-        // Check if destination square is attacked by any enemy
-        let safe = true;
-        for (const player of PLAYERS) {
-          if (player.colour === kingColour) continue;
-          if (isSquareAttacked(tr, tc, player.colour, kingColour)) {
-            safe = false;
-            break;
-          }
-        }
-        if (safe) return true; // found a legal king move
-      }
-      return false; // no legal king moves
-    }
-
-    // Check if king of given side is checkmated
-    function isCheckmated(kingSide) {
-      console.log('DEBUG isCheckmated called with:', kingSide);
-      const kingPos = getKingPosition(kingSide);
-      if (!kingPos) return false; // no king = not checkmated
-      const inCheck = isKingInCheck(kingSide, null);
-      const hasMoves = hasKingLegalMoves(kingSide);
-      console.log('DEBUG isCheckmated result:', { inCheck, hasMoves, result: inCheck && !hasMoves });
-      return inCheck && !hasMoves;
-    }
-
-    // Check if king of given side is stalemated
-    function isStalemated(kingSide) {
-      console.log('DEBUG isStalemated called with:', kingSide);
-      const kingPos = getKingPosition(kingSide);
-      if (!kingPos) return false; // no king = not stalemated
-      const inCheck = isKingInCheck(kingSide, null);
-      const hasMoves = hasKingLegalMoves(kingSide);
-      console.log('DEBUG isStalemated result:', { inCheck, hasMoves, result: !inCheck && !hasMoves });
-      return !inCheck && !hasMoves;
-    }
-
-    // Export all check-related functions for use by other modules
-    window.canPieceCapture = canPieceCapture;
-    window.isSquareAttacked = isSquareAttacked;
-    window.isKingInCheck = isKingInCheck;
-    window.getKingPosition = getKingPosition;
-    window.hasKingLegalMoves = hasKingLegalMoves;
-    window.isCheckmated = isCheckmated;
-    window.isStalemated = isStalemated;

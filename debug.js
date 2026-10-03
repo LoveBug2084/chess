@@ -111,7 +111,7 @@ function loadEnPassantTest() {
  *
  *  Back ranks (internal coords):
  *    South: row 13, cols 3-10  (king G-1=13,6, rooks D-1=13,3 & K-1=13,10)
- *    North: row 0,  cols 3-10  (king G-14=0,6, rooks D-14=0,3 & K-14=0,10)
+ *    North: row 0,  cols 3-10  (king H-14=0,7, rooks D-14=0,3 & K-14=0,10)
  *    West:  col 0,  rows 3-10  (king A-8=7,0, rooks A-4=3,0 & A-11=10,0)
  *    East:  col 13, rows 3-10  (king N-7=6,13, rooks N-4=3,13 & N-11=10,13)
  * ------------------------------------------------------------------ */
@@ -137,7 +137,7 @@ function loadCastleTest() {
   placePiece(13, 10, 'rook', colSouth, 'south'); boardState['13,10'].hasMoved = false;
 
   // --- NORTH (horizontal, row 0, cols 3-10) ---
-  placePiece(0, 6, 'king', colNorth, 'north'); boardState['0,6'].hasMoved = false;
+  placePiece(0, 7, 'king', colNorth, 'north'); boardState['0,7'].hasMoved = false;
   placePiece(0, 3, 'rook', colNorth, 'north'); boardState['0,3'].hasMoved = false;
   placePiece(0, 10, 'rook', colNorth, 'north'); boardState['0,10'].hasMoved = false;
 
@@ -194,3 +194,7 @@ function loadCheckTest() {
   renderTurn();
   updatePieceCountDisplay();
 }
+
+window.loadEnPassantTest = loadEnPassantTest;
+window.loadCastleTest = loadCastleTest;
+window.loadCheckTest = loadCheckTest;

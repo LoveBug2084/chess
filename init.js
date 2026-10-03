@@ -27,11 +27,9 @@ renderTurn();
 fitBoard();
 refreshEnPassantMarkers();
 
-// Run check detection on initial board (for test positions)
-if (typeof detectChecks === 'function') {
-  const checks = detectChecks();
-  applyCheckVisuals(checks);
-}
+// Initialize check flags and markers on initial board
+updateCheckFlags();
+refreshCheckMarkers();
 
 window.addEventListener('resize', fitBoard);
 window.addEventListener('load', fitBoard);

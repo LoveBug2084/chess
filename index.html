@@ -40,26 +40,28 @@
        use names that were defined by an EARLIER file. The order below is
        the dependency order:
 
-         config    constants + colours + PLAYERS      (no deps)
-         geometry  board shape + promotion squares    (needs config)
-         state     boardState + in-hand variables     (needs config)
-         flags     en-passant flag helpers            (needs state)
-pieceRules      piece rules + isLegalDestination    (needs geometry,
-                                                        state, flags)
+config    constants + colours + PLAYERS      (no deps)
+          geometry  board shape + promotion squares    (needs config)
+          state     boardState + in-hand variables     (needs config)
+          enPassantFlags.js en-passant flag helpers    (needs state)
+          pieceRules piece rules + isLegalDestination  (needs geometry,
+                                                         state, enPassantFlags)
           check       check detection                    (needs pieceRules)
-          render    drawing, ghost, markers            (needs config, state)
-         layout    starting layout + DOM build        (needs render + the
-                                                       click handlers)
-         moves     pick up / drop / click / hover     (needs most of the above)
-         debug     ?enpassant ?castle ?check loaders                    (needs render, state)
-         init      sprite check + start-up calls      (needs render)
-       * ------------------------------------------------------------------ -->
+          checkFlags  king check flag management         (needs check)
+          render    drawing, ghost, markers              (needs config, state, checkFlags)
+          layout    starting layout + DOM build          (needs render + the
+                                                         click handlers)
+          moves     pick up / drop / click / hover       (needs most of the above)
+          debug     ?enpassant ?castle ?check loaders    (needs render, state)
+          init      sprite check + start-up calls        (needs render)
+        * ------------------------------------------------------------------ -->
   <script src="config.js"></script>
   <script src="geometry.js"></script>
   <script src="state.js"></script>
   <script src="enPassantFlags.js"></script>
   <script src="pieceRules.js"></script>
   <script src="check.js"></script>
+  <script src="checkFlags.js"></script>
   <script src="render.js"></script>
   <script src="layout.js"></script>
   <script src="moves.js"></script>

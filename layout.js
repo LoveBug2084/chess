@@ -145,6 +145,8 @@ function setupNormalBoard() {
   }
   updatePieceCountDisplay();
 }
+window.setupNormalBoard = setupNormalBoard;
+/* ------------------------------------------------------------------ *
 /* ------------------------------------------------------------------ *
  *  PIECE COUNT DISPLAY (fixed overlay, top‑right)
  * ------------------------------------------------------------------ */

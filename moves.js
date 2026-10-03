@@ -1,9 +1,41 @@
     /* ------------------------------------------------------------------ *
      *  MOVE IN HAND
      * ------------------------------------------------------------------ */
+    let removedCheckFlags = null;  // { kingSide, flags[] } stored during drag
+
     function pickUp(sq, piece, e) {
-      clearCheckVisuals();
+      if (piece.pieceType === 'king') {
+        clearCheckVisuals();
+        clearCheckFlags(piece);
+        refreshCheckMarkers();  // Re-render other kings' rings
+      }
       const key = sq.dataset.row + ',' + sq.dataset.col;
+
+      // If picked piece is a checker, remove its flags from affected kings
+      if (piece.pieceType !== 'king') {
+        const fr = +sq.dataset.row, fc = +sq.dataset.col;
+        const removed = [];
+        
+        for (const k in boardState) {
+          const king = boardState[k];
+          if (king && king.pieceType === 'king' && king.checkFlags?.length) {
+            const matchingFlags = king.checkFlags.filter(f => 
+              f.attackerR === fr && f.attackerC === fc
+            );
+            if (matchingFlags.length) {
+              for (const flag of matchingFlags) {
+                removeCheckFlag(king, flag.attackerR, flag.attackerC);
+              }
+              removed.push({ kingSide: king.side, flags: matchingFlags });
+            }
+          }
+        }
+        
+        if (removed.length) {
+          removedCheckFlags = removed;
+          refreshCheckMarkers();
+        }
+      }
 
       addGhost(piece, sq);
 
@@ -61,6 +93,12 @@
 
       clearHighlights();
       clearCheckVisuals();
+
+      // Recompute check flags from actual board state (handles both king and checker cancel)
+      updateCheckFlags();
+      refreshCheckMarkers();
+      removedCheckFlags = null;  // Clear any stored state
+
       heldPiece = null;
       selectedSquare = null;
     }
@@ -312,9 +350,9 @@
       // Refresh the en-passant rings so the new flag state is visible.
       refreshEnPassantMarkers();
 
-      // Detect checks and apply visuals
-      const checks = detectChecks();
-      applyCheckVisuals(checks);
+      // Update check flags and refresh check markers
+      updateCheckFlags();
+      refreshCheckMarkers();
 
       nextTurn();
     }
@@ -337,7 +375,8 @@
         side: pawn.side,
         hasMoved: true,   // irrelevant for non-pawns, kept for shape
         el,
-        enPassantFlags: []
+        enPassantFlags: [],
+        checkFlags: []
       };
     }
 

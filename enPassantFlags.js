@@ -87,3 +87,8 @@
 
       return true;
     }
+
+window.addFlag = addFlag;
+window.removeFlag = removeFlag;
+window.clearAllFlagsFor = clearAllFlagsFor;
+window.isEnPassantCapture = isEnPassantCapture;

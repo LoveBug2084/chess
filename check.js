@@ -1,8 +1,8 @@
 /* ------------------------------------------------------------------ *
- *  CHECK DETECTION
+ *  CHECK DETECTION & VALIDATION
  *
- *  Determines which kings are in check and by which pieces.
- *  Uses existing movement rules from pieceRules.js.
+ *  Core check logic: canPieceCapture, getAttackers, isSquareAttacked,
+ *  isKingInCheck. Visuals moved to checkFlags.js + render.js.
  * ------------------------------------------------------------------ */
 
 // Get all kings on the board with their side, colour, and position
@@ -124,14 +124,58 @@ function getAttackers(tr, tc, byColour, targetColour) {
   return attackers;
 }
 
-// Detect all checks on the board
+// Check if any enemy piece of the given colour attacks (tr,tc)
+// targetColour = the colour of the piece on (tr,tc) (e.g. the king)
+function isSquareAttacked(tr, tc, byColour, targetColour) {
+  for (const key in boardState) {
+    const piece = boardState[key];
+    if (!piece || piece.colour !== byColour) continue;
+    const [fr, fc] = key.split(',').map(Number);
+    if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check if the king's own side is currently in check
+// If kingPos is provided, use it (for when king is in hand); otherwise search boardState
+// Now reads from king.checkFlags for efficiency
+function isKingInCheck(kingSide, kingPos) {
+  const player = PLAYERS.find(p => p.key === kingSide);
+  if (!player) return false;
+  const kingColour = player.colour;
+  let kr, kc;
+  if (kingPos) {
+    kr = kingPos.r; kc = kingPos.c;
+  } else {
+    // Find the king in boardState
+    let found = false;
+    for (const key in boardState) {
+      const piece = boardState[key];
+      if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
+        [kr, kc] = key.split(',').map(Number);
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+  }
+  // Check against all three opponent colours
+  for (const player of PLAYERS) {
+    if (player.colour === kingColour) continue;
+    if (isSquareAttacked(kr, kc, player.colour, kingColour)) return true;
+  }
+  return false;
+}
+
+// Detect all checks on the board (kept for validation purposes)
 function detectChecks() {
   const checks = {};
   const kings = getAllKings();
 
   for (const king of kings) {
     const allAttackers = [];
-    // Check against all three opponent colours
     for (const player of PLAYERS) {
       if (player.colour === king.colour) continue;
       const attackers = getAttackers(king.r, king.c, player.colour, king.colour);
@@ -147,64 +191,10 @@ function detectChecks() {
   return checks; // { side: { king, attackers[] } }
 }
 
-// Visual feedback for check.
-//
-// ORDERING MATTERS HERE. The pulse animation lives on the ::after
-// pseudo-element and is started by adding the `.in-check` / `.checking`
-// class. The ring's colour comes from a custom property
-// (--check-ring-gradient / --check-color), and custom properties are NOT
-// animatable — the animation does not restart when they change. So the
-// property must already be in place when the class is added; if the
-// class lands first, the animation starts against an empty background
-// and you see a half-strength pulse caught mid-cycle. Set colour first,
-// class second. Do NOT read offsetWidth between them: the forced reflow
-// makes the browser paint the class-without-colour state, which is
-// exactly the frame-timing bug we are avoiding.
-function applyCheckVisuals(checks) {
-  // Clear previous. Delegated to clearCheckVisuals() so the clear step
-  // can never drift out of sync with the apply step below.
-  clearCheckVisuals();
-
-  for (const [kingSide, data] of Object.entries(checks)) {
-    const { king, attackers } = data;
-
-    // King's square: build conic-gradient from all attackers (360°/n each),
-    // THEN add the class so the animation starts with the gradient ready.
-    const kingSq = squareEl(king.r, king.c);
-    if (kingSq) {
-      const n = attackers.length;
-      const segments = attackers.map((a, i) => {
-        const start = (360 / n) * i;
-        const end = (360 / n) * (i + 1);
-        const color = COLOUR_HEX[a.colour];
-        return `${color} ${start}deg, ${color} ${end}deg`;
-      }).join(', ');
-      kingSq.style.setProperty('--check-ring-gradient', `conic-gradient(${segments})`);
-      kingSq.classList.add('in-check');
-    }
-
-    // Attacker squares: solid attacker colour + flash. Same ordering —
-    // colour first, class second — for the same reason as above.
-    for (const attacker of attackers) {
-      const sq = squareEl(attacker.r, attacker.c);
-      if (sq) {
-        sq.style.setProperty('--check-color', COLOUR_HEX[attacker.colour]);
-        sq.classList.add('checking');
-      }
-    }
-  }
-}
-
-function clearCheckVisuals() {
-  board.querySelectorAll('.square.in-check, .square.checking')
-    .forEach(s => {
-      s.classList.remove('in-check', 'checking');
-      s.style.removeProperty('--check-color');
-      s.style.removeProperty('--check-ring-gradient');
-    });
-}
-
-// Expose for moves.js
+// Expose for moves.js and checkFlags.js
+window.canPieceCapture = canPieceCapture;
+window.getAttackers = getAttackers;
+window.isSquareAttacked = isSquareAttacked;
+window.isKingInCheck = isKingInCheck;
 window.detectChecks = detectChecks;
-window.applyCheckVisuals = applyCheckVisuals;
-window.clearCheckVisuals = clearCheckVisuals;
+window.getAllKings = getAllKings;

@@ -201,9 +201,9 @@
       animation: pulse-flash 1s ease-in-out infinite;
     }
 
-    /* CHECK ATTACKER SQUARES: solid attacker color + flash */
+    /* CHECK ATTACKER SQUARES: multi-king conic gradient + flash */
     .square.checking::after {
-      background: var(--check-color);
+      background: var(--check-ring-gradient);
       animation: pulse-flash 1s ease-in-out infinite;
     }
 

@@ -1,4 +1,4 @@
-    /* ------------------------------------------------------------------ *
+/* ------------------------------------------------------------------ *
      *  RESPONSIVE SIZING
      *
      *  The board must fit inside the space left after the header, the
@@ -63,6 +63,7 @@
     // The side is recorded on the piece so movement rules need no lookup.
     // Pawns start with hasMoved = false (they may still make a 2-square move).
     // Every piece starts with an empty enPassantFlags array (see state.js).
+    // Kings start with an empty checkFlags array.
     function placePiece(r, c, pieceType, colour, side) {
       const sq = squareEl(r, c);
       if (!sq) return;
@@ -74,10 +75,24 @@
         side,
         hasMoved: false,
         el,
-        enPassantFlags: []
+        enPassantFlags: [],
+        checkFlags: []
       };
       pieceCounts[colour]++;
     }
+
+    window.placePiece = placePiece;
+    window.fitBoard = fitBoard;
+    window.renderTurn = renderTurn;
+    window.nextTurn = nextTurn;
+    window.squareEl = squareEl;
+    window.makePieceEl = makePieceEl;
+    window.setOverlayColour = setOverlayColour;
+    window.clearHighlights = clearHighlights;
+    window.removeHeldFromBoard = removeHeldFromBoard;
+    window.addGhost = addGhost;
+    window.removeGhost = removeGhost;
+    window.refreshEnPassantMarkers = refreshEnPassantMarkers;
 
     /* ------------------------------------------------------------------ *
      *  HIGHLIGHTS
@@ -155,3 +170,98 @@
         }
       }
     }
+
+    /* ------------------------------------------------------------------ *
+     *  CHECK MARKERS (visual aid)
+     *
+     *  Draws rings on king squares and attacker squares based on
+     *  king.checkFlags. Mirrors the en passant marker system.
+     *  Refreshed after every move via updateCheckFlags() + refreshCheckMarkers().
+     *
+     *  King rings show attacker colours (which players are checking the king).
+     *  Attacker rings show king colours (which kings the piece is attacking).
+     *  Both use conic-gradient segments: 360°/n per colour.
+     * ------------------------------------------------------------------ */
+    function refreshCheckMarkers() {
+      // Clear old visuals first
+      board.querySelectorAll('.square.in-check, .square.checking')
+        .forEach(s => {
+          s.classList.remove('in-check', 'checking');
+          s.style.removeProperty('--check-color');
+          s.style.removeProperty('--check-ring-gradient');
+        });
+
+      // 1. Build attackerMap: "r,c" -> [kingColour1, kingColour2, ...]
+      // Maps each attacking piece's square to the king colours it's attacking.
+      const attackerMap = new Map();
+      for (const key in boardState) {
+        const king = boardState[key];
+        if (king && king.pieceType === 'king' && king.checkFlags?.length) {
+          const kingColour = COLOUR_HEX[king.colour];
+          for (const flag of king.checkFlags) {
+            const posKey = `${flag.attackerR},${flag.attackerC}`;
+            if (!attackerMap.has(posKey)) attackerMap.set(posKey, []);
+            const colors = attackerMap.get(posKey);
+            if (!colors.includes(kingColour)) {
+              colors.push(kingColour);
+            }
+          }
+        }
+      }
+
+      // 2. Render king rings (show attacker colours - which players are checking)
+      for (const key in boardState) {
+        const piece = boardState[key];
+        if (piece && piece.pieceType === 'king' && piece.checkFlags?.length) {
+          const [r, c] = key.split(',').map(Number);
+          const kingSq = squareEl(r, c);
+          if (!kingSq) continue;
+
+          const flags = piece.checkFlags;
+          const n = flags.length;
+          const segments = flags.map((f, i) => {
+            const start = (360 / n) * i;
+            const end = (360 / n) * (i + 1);
+            const color = COLOUR_HEX[f.attackerColour];
+            return `${color} ${start}deg, ${color} ${end}deg`;
+          }).join(', ');
+
+          kingSq.style.setProperty('--check-ring-gradient', `conic-gradient(${segments})`);
+          kingSq.classList.add('in-check');
+        }
+      }
+
+      // 3. Render attacker rings (show king colours - which kings are being attacked)
+      for (const [posKey, kingColors] of attackerMap) {
+        const [r, c] = posKey.split(',').map(Number);
+        const sq = squareEl(r, c);
+        if (!sq) continue;
+
+        const n = kingColors.length;
+        const segments = kingColors.map((color, i) => {
+          const start = (360 / n) * i;
+          const end = (360 / n) * (i + 1);
+          return `${color} ${start}deg, ${color} ${end}deg`;
+        }).join(', ');
+
+        sq.style.setProperty('--check-ring-gradient', `conic-gradient(${segments})`);
+        sq.classList.add('checking');
+      }
+    }
+
+    window.refreshCheckMarkers = refreshCheckMarkers;
+
+    /* ------------------------------------------------------------------ *
+     *  CLEAR CHECK VISUALS
+     *  Removes all check-related visual markers from the board.
+     * ------------------------------------------------------------------ */
+    function clearCheckVisuals() {
+      board.querySelectorAll('.square.in-check, .square.checking')
+        .forEach(s => {
+          s.classList.remove('in-check', 'checking');
+          s.style.removeProperty('--check-color');
+          s.style.removeProperty('--check-ring-gradient');
+        });
+    }
+
+    window.clearCheckVisuals = clearCheckVisuals;

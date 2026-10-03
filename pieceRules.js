@@ -198,7 +198,9 @@
     // Check if the king's own side is currently in check
     // If kingPos is provided, use it (for when king is in hand); otherwise search boardState
     function isKingInCheck(kingSide, kingPos) {
-      const kingColour = PLAYERS.find(p => p.key === kingSide).colour;
+      const player = PLAYERS.find(p => p.key === kingSide);
+      if (!player) return false;
+      const kingColour = player.colour;
       let kr, kc;
       if (kingPos) {
         kr = kingPos.r; kc = kingPos.c;

@@ -125,52 +125,21 @@ function getAttackers(tr, tc, byColour, targetColour) {
 }
 
 // Check if any enemy piece of the given colour attacks (tr,tc)
-// targetColour = the colour of the piece on (tr,tc) (e.g. the king)
-function isSquareAttacked(tr, tc, byColour, targetColour) {
-  for (const key in boardState) {
-    const piece = boardState[key];
-    if (!piece || piece.colour !== byColour) continue;
-    const [fr, fc] = key.split(',').map(Number);
-    if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
-      return true;
-    }
-  }
-  return false;
-}
+ // targetColour = the colour of the piece on (tr,tc) (e.g. the king)
+ function isSquareAttacked(tr, tc, byColour, targetColour) {
+   for (const key in boardState) {
+     const piece = boardState[key];
+     if (!piece || piece.colour !== byColour) continue;
+     const [fr, fc] = key.split(',').map(Number);
+     if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
+       return true;
+     }
+   }
+   return false;
+ }
 
-// Check if the king's own side is currently in check
-// If kingPos is provided, use it (for when king is in hand); otherwise search boardState
-// Now reads from king.checkFlags for efficiency
-function isKingInCheck(kingSide, kingPos) {
-  const player = PLAYERS.find(p => p.key === kingSide);
-  if (!player) return false;
-  const kingColour = player.colour;
-  let kr, kc;
-  if (kingPos) {
-    kr = kingPos.r; kc = kingPos.c;
-  } else {
-    // Find the king in boardState
-    let found = false;
-    for (const key in boardState) {
-      const piece = boardState[key];
-      if (piece && piece.pieceType === 'king' && piece.side === kingSide) {
-        [kr, kc] = key.split(',').map(Number);
-        found = true;
-        break;
-      }
-    }
-    if (!found) return false;
-  }
-  // Check against all three opponent colours
-  for (const player of PLAYERS) {
-    if (player.colour === kingColour) continue;
-    if (isSquareAttacked(kr, kc, player.colour, kingColour)) return true;
-  }
-  return false;
-}
-
-// Detect all checks on the board (kept for validation purposes)
-function detectChecks() {
+ // Detect all checks on the board (kept for validation purposes)
+ function detectChecks() {
   const checks = {};
   const kings = getAllKings();
 
@@ -192,9 +161,8 @@ function detectChecks() {
 }
 
 // Expose for moves.js and checkFlags.js
-window.canPieceCapture = canPieceCapture;
-window.getAttackers = getAttackers;
-window.isSquareAttacked = isSquareAttacked;
-window.isKingInCheck = isKingInCheck;
-window.detectChecks = detectChecks;
-window.getAllKings = getAllKings;
+ window.canPieceCapture = canPieceCapture;
+ window.getAttackers = getAttackers;
+ window.isSquareAttacked = isSquareAttacked;
+ window.detectChecks = detectChecks;
+ window.getAllKings = getAllKings;

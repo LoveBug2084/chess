@@ -44,8 +44,13 @@ document.getElementById('modePill').addEventListener('click', () => {
   renderTurn();
 });
 
-// Suppress context menu only in play mode
+// Suppress context menu in both modes
 board.addEventListener('contextmenu', e => {
-  if (freeMode) return; // Allow right-click for delete in free mode
-  if (heldPiece) { e.preventDefault(); cancelMove(); }
+  e.preventDefault(); // Prevent browser context menu
+  if (freeMode) {
+    // In free mode, let onSquareClick handle right-click delete
+    return;
+  }
+  // In play mode, right-click cancels move if holding piece
+  if (heldPiece) { cancelMove(); }
 });

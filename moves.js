@@ -109,15 +109,22 @@
     function onSquareClick(sq, e) {
       const r = +sq.dataset.row, c = +sq.dataset.col;
 
-      // Free mode: right-click on piece = delete
+// Free mode: right-click on piece = delete
       if (freeMode && e.button === 2) {
         const key = r + ',' + c;
         const piece = boardState[key];
         if (piece) {
+          if (piece.pieceType === 'pawn') {
+            clearAllFlagsFor(piece, r, c);
+          }
           piece.el.remove();
           delete boardState[key];
           pieceCounts[piece.colour]--;
           updatePieceCountDisplay();
+          // Update visual markers after deletion in free mode
+          updateCheckFlags();
+          refreshCheckMarkers();
+          refreshEnPassantMarkers();
           return;
         }
       }
@@ -267,7 +274,8 @@
       // flag on it naming each perpendicular-adjacent ENEMY pawn, and set
       // the reciprocal flag on each of those enemy pawns naming it. The
       // flags persist (see state.js) until a flagged pawn moves.
-      if (twoSquarePawnMove) {
+      // Only create en passant flags in play mode, never in free mode.
+      if (!freeMode && twoSquarePawnMove) {
         const movingPawn = boardState[toKey];
         if (movingPawn && movingPawn.pieceType === 'pawn') {
           // Movement axis: vertical if the row changed, otherwise horizontal.
@@ -295,27 +303,33 @@
         }
       }
 
-      clearHighlights();
+clearHighlights();
       window.removeEventListener('mousemove', onMouseMove);
       if (heldPiece) {
         heldPiece.el.style.left = '';
         heldPiece.el.style.top = '';
         heldPiece.el.classList.remove('dragging');
       }
+      const movedPieceType = heldPiece?.pieceType;
+      const movedFr = fr;
+      const movedFc = fc;
       heldPiece = null;
       selectedSquare = null;
 
-      // Refresh the en-passant rings so the new flag state is visible.
-      refreshEnPassantMarkers();
-
       if (!freeMode) {
-        // Update check flags and refresh check markers
+        // Play mode: update everything including en passant
+        refreshEnPassantMarkers();
         updateCheckFlags();
         refreshCheckMarkers();
-
         nextTurn();
       } else {
-        // In free mode, just update the piece count display
+        // Free mode: clear en passant flags from moved pawn and its partners, then refresh visuals
+        if (movedPieceType === 'pawn') {
+          clearAllFlagsFor({ pieceType: 'pawn', colour: heldPiece?.colour, side: heldPiece?.side }, movedFr, movedFc);
+        }
+        refreshEnPassantMarkers();
+        updateCheckFlags();
+        refreshCheckMarkers();
         updatePieceCountDisplay();
       }
     }

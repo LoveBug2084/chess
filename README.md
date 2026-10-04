@@ -4,6 +4,8 @@ A browser-based four-player chess variant played on a plus-shaped board. Each of
 the four armies starts on one arm of the cross and fights a free-for-all: every
 player is hostile to every other, and there are no teams or alliances.
 
+**New features:** Free/Play mode toggle, checkmate/stalemate turn skipping, visual status display, en passant cleanup in free mode.
+
 The board, the four-armies layout, and a set of custom pawn movement rules make
 this a distinct game rather than standard chess with extra players.
 
@@ -84,6 +86,19 @@ That is **16 pieces per player, 64 in total**. The centre 8×8 starts empty.
 - **Cancel a move:** right-click while a piece is in hand, or press **Esc**.
   The piece returns to its origin square.
 - **Illegal destinations** are simply ignored — clicking one does nothing.
+
+### Free / Play Mode
+
+A mode toggle in the header (left of the turn pill) switches between two modes:
+
+| Mode      | Icon | Behavior |
+|-----------|------|----------|
+| **Play**  | 🟢   | Standard rules: turn-based, colour-restricted, check/checkmate enforced, turn order enforced. |
+| **Free**  | 🟠   | No rules: pick up any piece (any colour), place on any empty square, right-click to delete. No turn enforcement, no check validation, no checkmate/stalemate. En passant flags are **cleared** when a pawn is moved or deleted (rings update visually). Check markers still update. Turn pill is hidden. |
+
+- **Default:** Play mode (green pill).
+- **Toggle:** Click the mode pill in the header.
+- **Free mode visuals:** Turn pill hidden. Mode pill shows "Free" (orange) or "Play" (green). Check markers still update. En passant rings update when pawns are moved/deleted (flags cleared, rings removed for affected pawns). No new en passant flags are created in free mode.
 
 ### Pawns
 
@@ -253,13 +268,21 @@ unaffected when no parameter is present.
 | Pawn promotion                                              | ✅ Done    |
 | En passant (four-player flag system)                        | ✅ Done    |
 | En-passant ring markers (debug aid)                         | ✅ Done    |
+| En passant cleanup in free mode                             | ✅ Done    |
 | No friendly landing (all pieces)                            | ✅ Done    |
 | Non-pawn movement (rook, knight, bishop, queen, king)       | ✅ Done    |
 | Castling (horizontal in N/S, vertical in W/E)               | ✅ Done    |
 | King cannot move into check                                 | ✅ Done    |
 | Castling out of/through/into check prevented                | ✅ Done    |
-| Checkmate detection                                          | ⬜ Not yet |
-| Stalemate handling                                           | ⬜ Not yet |
+| Check detection                                             | ✅ Done    |
+| Checkmate detection                                          | ✅ Done    |
+| Stalemate handling                                           | ✅ Done    |
+| Free/Play mode toggle                                       | ✅ Done    |
+| Checkmate/stalemate turn skipping                           | ✅ Done    |
+| Visual status display (Check/Checkmate/Stalemate)           | ✅ Done    |
+| Free mode en passant cleanup (flags cleared, rings updated) | ✅ Done    |
+| Free mode check markers update                              | ✅ Done    |
+| Context menu suppression in free mode                       | ✅ Done    |
 
 **Note on "elimination":** there is no elimination rule. A player with 0 pieces
 is skipped by `nextTurn()` purely to prevent a softlock (see *Turn skipping*).
@@ -272,21 +295,16 @@ for any edge case where a player loses all pieces.
 ## Known limitations
 
 - **The king cannot be captured.** Capturing the king is explicitly blocked in `isLegalDestination()` (see *General* rules above).
-- **No checkmate or stalemate detection.** A player with no legal move but pieces still on the board has no defined outcome yet.
 - **Turn skipping assumes at least one player always has pieces.** The `nextTurn()` loop skips players with 0 pieces; if every player somehow reached 0 pieces the loop would not terminate. Unreachable in normal play, but worth hardening when check/checkmate are written.
 - **Castling out of, through, or into check is prevented.** The king cannot castle out of, through, or into check.
 - **Promotion is automatic.** A pawn reaching a promotion square is promoted to the back-rank piece for that square (king square → queen); there is no choice of piece.
+- **Free mode en passant limitations:** No new en passant flags are created in free mode. When a pawn is moved or deleted in free mode, its en passant flags (and partner flags) are cleared and rings are removed for affected pawns. En passant flags persist only in play mode.
 
 ### Intended direction
 
 The king is **already uncapturable** (capturing the king is explicitly blocked).
 **Check detection is implemented** — the king cannot move into check, and castling out of/through/into check is prevented.
-The remaining work is implementing **checkmate detection** and **stalemate
-handling**. Once those exist, the game will end for a player at checkmate (or
-stalemate). At that point the 0-piece skip becomes unreachable in normal play,
-and turn skipping will instead be driven by a single "is this player still
-active?" test covering checkmate and stalemate. This is noted here so the
-current skip is not mistaken for deliberate game design.
+**Checkmate and stalemate detection are implemented.** When a player is checkmated or stalemated, their turn is skipped for that cycle (not eliminated). They are re-evaluated each cycle and resume play if the check/stalemate is resolved. The 0-piece skip remains a safety net for edge cases.
 
 ---
 
@@ -610,6 +628,21 @@ square (king square → queen), in the pawn's own colour.
 
 - **Fixed king move-into-check bug:** `isSquareAttacked()` in `pieceRules.js` was passing the attacker's colour instead of the target king's colour to `canPieceCapture()`, causing the check test to always return false. The king could illegally move into check. Fixed by adding `targetColour` parameter to `isSquareAttacked()` and updating all 5 call sites (normal move, castling path checks, `isKingInCheck`).
 - **Updated Known limitations:** Removed outdated claim that "no rule prevents a move that leaves your own king attacked" — that rule now works.
+
+### Current version (Free/Play mode, checkmate/stalemate detection, free mode en passant cleanup)
+
+- **Free/Play mode toggle:** Added a mode toggle pill in the header (left of turn pill). 
+  - **Play mode (default):** Standard rules — turn-based, colour-restricted, check/checkmate enforced, turn order enforced.
+  - **Free mode:** No rules — pick up any piece (any colour), place on any empty square, right-click to delete. No turn enforcement, no check validation, no checkmate/stalemate. Turn pill hidden. Mode pill shows "Free" (orange) or "Play" (green).
+- **Free mode en passant cleanup:** When a pawn is moved or deleted in free mode, its en passant flags (and partner flags) are cleared and rings are visually removed for affected pawns. No new en passant flags are created in free mode. Check markers still update in free mode.
+- **Checkmate/Stalemate detection & turn skipping:** Implemented in `pieceRules.js` (`hasLegalMoves`, `getPlayerStatus`) and `render.js` (`nextTurn`). When a player is checkmated or stalemated, their turn is skipped for that cycle. They are re-evaluated each cycle and resume play if the check/stalemate is resolved. The 0-piece skip remains a safety net.
+- **Visual status display:** Piece count display (top-right) now shows status: "Check", "Checkmate", "Stalemate", or empty. Piece counts padded to 2 digits with leading space. Labels padded for alignment (West/East get trailing space).
+- **Turn pill hidden in free mode:** Turn pill (`#turnPill`) is hidden (`display: none`) in free mode; mode toggle pill shows "Free" (orange) or "Play" (green).
+- **Context menu fix:** Right-click in free mode no longer shows browser context menu; right-click on piece deletes it. In play mode, right-click cancels move if holding piece.
+- **En passant flag creation restricted to play mode:** Two-square pawn moves only create en passant flags in play mode, never in free mode.
+- **En passant cleanup on pawn move/delete in free mode:** When a pawn is moved or right-click deleted in free mode, `clearAllFlagsFor` clears its flags and all partner flags, then `refreshEnPassantMarkers()` updates visuals (rings removed for affected pawns). Check markers still update in free mode.
+
+---
 
 ### Current version (en passant flags renamed)
 

@@ -36,3 +36,16 @@ window.addEventListener('load', fitBoard);
 if (window.ResizeObserver) {
   new ResizeObserver(fitBoard).observe(document.querySelector('.board-wrap'));
 }
+
+// Mode toggle
+document.getElementById('modePill').addEventListener('click', () => {
+  freeMode = !freeMode;
+  window.freeMode = freeMode;
+  renderTurn();
+});
+
+// Suppress context menu only in play mode
+board.addEventListener('contextmenu', e => {
+  if (freeMode) return; // Allow right-click for delete in free mode
+  if (heldPiece) { e.preventDefault(); cancelMove(); }
+});

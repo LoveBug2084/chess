@@ -415,6 +415,12 @@
     function isLegalDestination(fromSq, toSq) {
       if (!heldPiece) return false;
 
+      // Free mode: allow any move to empty square
+      if (freeMode) {
+        const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
+        return !boardState[tr + ',' + tc];
+      }
+
       // Allow returning piece to its origin square (cancel move)
       if (toSq === fromSq) return true;
 

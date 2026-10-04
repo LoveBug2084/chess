@@ -22,12 +22,25 @@
      *  chosen by the colour's perceived luminance.
      * ------------------------------------------------------------------ */
     function renderTurn() {
-      const p = currentPlayer();
-      const colourHex = COLOUR_HEX[p.colour];
-      const pill = document.getElementById('turnPill');
-      pill.style.background = colourHex;
-      pill.style.color = readableTextColour(colourHex);
-      document.getElementById('turnText').textContent = `${colourLabel(p.colour)} to move`;
+      const modePill = document.getElementById('modePill');
+      const modeText = document.getElementById('modeText');
+      const turnPill = document.getElementById('turnPill');
+      const turnText = document.getElementById('turnText');
+
+      // Update mode pill
+      modePill.className = 'mode-toggle ' + (freeMode ? 'free' : 'play');
+      modeText.textContent = freeMode ? 'Free' : 'Play';
+
+      if (!freeMode) {
+        const p = currentPlayer();
+        const colourHex = COLOUR_HEX[p.colour];
+        turnPill.style.background = colourHex;
+        turnPill.style.color = readableTextColour(colourHex);
+        turnText.textContent = `${colourLabel(p.colour)} to move`;
+        turnPill.style.display = 'inline-flex';
+      } else {
+        turnPill.style.display = 'none';
+      }
     }
 
     function nextTurn() {

@@ -62,3 +62,6 @@
     }
 
     function currentPlayer() { return PLAYERS[turnIndex]; }
+
+    let freeMode = false;
+    window.freeMode = freeMode;

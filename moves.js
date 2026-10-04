@@ -109,6 +109,38 @@
     function onSquareClick(sq, e) {
       const r = +sq.dataset.row, c = +sq.dataset.col;
 
+      // Free mode: right-click on piece = delete
+      if (freeMode && e.button === 2) {
+        const key = r + ',' + c;
+        const piece = boardState[key];
+        if (piece) {
+          piece.el.remove();
+          delete boardState[key];
+          pieceCounts[piece.colour]--;
+          updatePieceCountDisplay();
+          return;
+        }
+      }
+
+      // Free mode: allow picking ANY piece, placing on ANY empty square
+      if (freeMode) {
+        if (heldPiece) {
+          // Dropping piece
+          if (sq === selectedSquare) { cancelMove(); return; }
+          if (!boardState[r + ',' + c]) {
+            dropOn(sq);  // reuse existing drop logic but skip turn advance
+          }
+          return;
+        }
+
+        // Pick up any piece (any color)
+        const occupant = boardState[r + ',' + c];
+        if (occupant) {
+          pickUp(sq, occupant, e);
+        }
+        return;
+      }
+
       if (heldPiece) {
         if (sq === selectedSquare) { cancelMove(); return; }
         if (!isLegalDestination(selectedSquare, sq)) return; // illegal: ignore
@@ -276,11 +308,16 @@
       // Refresh the en-passant rings so the new flag state is visible.
       refreshEnPassantMarkers();
 
-      // Update check flags and refresh check markers
-      updateCheckFlags();
-      refreshCheckMarkers();
+      if (!freeMode) {
+        // Update check flags and refresh check markers
+        updateCheckFlags();
+        refreshCheckMarkers();
 
-      nextTurn();
+        nextTurn();
+      } else {
+        // In free mode, just update the piece count display
+        updatePieceCountDisplay();
+      }
     }
 
     // Replace the pawn on toSq with a new piece of newType, keeping the
@@ -310,6 +347,14 @@
     // but only if the destination is legal for the held piece.
     function onSquareEnter(sq) {
       if (!heldPiece) return;
+      if (freeMode) {
+        // In free mode, highlight any empty square
+        if (sq !== selectedSquare && !boardState[sq.dataset.row + ',' + sq.dataset.col]) {
+          setOverlayColour(sq, heldPiece.colour);
+          sq.classList.add('hover-dest');
+        }
+        return;
+      }
       if (!isLegalDestination(selectedSquare, sq)) return; // illegal: no highlight
       if (sq !== selectedSquare) {
         setOverlayColour(sq, heldPiece.colour);

@@ -82,8 +82,8 @@ const layout = {
 })();
 
 /* ------------------------------------------------------------------ *
- *  BUILD DOM
- * ------------------------------------------------------------------ */
+  *  BUILD DOM
+  * ------------------------------------------------------------------ */
 const board = document.getElementById('chessBoard');
 
 for (let r = 0; r < N; r++) {
@@ -156,7 +156,7 @@ countsDiv.style.position = 'fixed';
 countsDiv.style.top = '10px';
 countsDiv.style.right = '10px';
 countsDiv.style.zIndex = '1000';
-countsDiv.style.fontFamily = 'sans-serif';
+countsDiv.style.fontFamily = 'monospace';
 countsDiv.style.fontSize = '14px';
 countsDiv.style.background = 'rgba(0,0,0,0.6)';
 countsDiv.style.color = '#fff';
@@ -169,7 +169,13 @@ function updatePieceCountDisplay() {
   let html = '';
   for (const player of PLAYERS) {
     const cnt = pieceCounts[player.colour] || 0;
-    html += `<div>${player.label}: ${cnt}</div>`;
+    const paddedCnt = String(cnt).padStart(2, ' ').replace(/ /g, '&nbsp;');
+    const status = getPlayerStatus(player.key);
+    // Pad label to 5 chars: "South"=5, "West"=4+1, "North"=5, "East"=4+1
+    const label = player.label.length < 5 
+      ? player.label + '&nbsp;'.repeat(5 - player.label.length)
+      : player.label;
+    html += `<div>${label}:${paddedCnt}${status ? ' ' + status : ''}</div>`;
   }
   countsDiv.innerHTML = html;
 }

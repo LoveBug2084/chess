@@ -267,6 +267,47 @@
       return isKingInCheck(movingPiece.side, null, boardCopy);
     }
 
+    // Check if a player has any legal moves
+    function hasLegalMoves(side) {
+      const playerColour = PLAYERS.find(p => p.key === side).colour;
+      const savedHeldPiece = heldPiece;
+      
+      for (const key in boardState) {
+        const piece = boardState[key];
+        if (!piece || piece.colour !== playerColour) continue;
+        
+        const [fr, fc] = key.split(',').map(Number);
+        heldPiece = piece; // Simulate picking up this piece
+        
+        for (let tr = 0; tr < N; tr++) {
+          for (let tc = 0; tc < N; tc++) {
+            if (!isBoard(tr, tc)) continue;
+            const fromSq = { dataset: { row: fr, col: fc } };
+            const toSq = { dataset: { row: tr, col: tc } };
+            if (isLegalDestination(fromSq, toSq)) {
+              heldPiece = savedHeldPiece;
+              return true;
+            }
+          }
+        }
+        heldPiece = savedHeldPiece;
+      }
+      heldPiece = savedHeldPiece;
+      return false;
+    }
+
+    // Get player status for display: '', 'Check', 'Checkmate', 'Stalemate'
+    function getPlayerStatus(side) {
+      const cnt = pieceCounts[PLAYERS.find(p => p.key === side).colour] || 0;
+      if (cnt === 0) return '';
+      const inCheck = isKingInCheck(side);
+      const hasMoves = hasLegalMoves(side);
+      if (inCheck && !hasMoves) return 'Checkmate';
+      if (!inCheck && !hasMoves) return 'Stalemate';
+      if (inCheck) return 'Check';
+      return '';
+    }
+
     // Evaluate a pawn move. Returns { legal, capture, enPassant }.
     // `pawn` is the piece being moved (needed so its flags can be read —
     // it is NOT in boardState while in hand).

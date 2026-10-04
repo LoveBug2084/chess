@@ -31,12 +31,31 @@
     }
 
     function nextTurn() {
-      // Advance to the next player who still has pieces.
-      // Players with 0 pieces are eliminated and skipped.
+      // Advance to the next player who still has pieces and is not checkmated/stalemated.
+      // Checkmate and stalemate are evaluated each turn (not permanent).
+      let attempts = 0;
+      const maxAttempts = PLAYERS.length;
+      
       do {
         turnIndex = (turnIndex + 1) % PLAYERS.length;
-      } while (pieceCounts[PLAYERS[turnIndex].colour] === 0);
-      renderTurn();
+        const player = PLAYERS[turnIndex];
+        const colour = player.colour;
+        const cnt = pieceCounts[colour] || 0;
+        attempts++;
+        
+        if (cnt === 0) continue; // Eliminated — permanent skip
+        
+        const inCheck = isKingInCheck(player.key);
+        const hasMoves = hasLegalMoves(player.key);
+        
+        if (inCheck && !hasMoves) continue; // Checkmate — skip this turn
+        if (!inCheck && !hasMoves) continue; // Stalemate — skip this turn
+        
+        // Valid turn found
+        renderTurn();
+        updatePieceCountDisplay(); // Status updated BEFORE player moves
+        return;
+      } while (attempts < maxAttempts);
     }
 
     /* ------------------------------------------------------------------ *

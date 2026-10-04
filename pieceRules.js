@@ -448,79 +448,9 @@
           return true;
         }
 
-        // Castling: 2-square move toward an unmoved rook (horizontal or vertical)
-        // King cannot castle out of, through, or into check
-        const kingPos = { r: fr, c: fc };
-        if (!heldPiece.hasMoved && !isKingInCheck(heldPiece.side, kingPos)) {
-          // Vertical castling (West/East arms)
-          if (absDr === 2 && dc === 0) {
-            const step = dr > 0 ? 1 : -1;
-            let rook = null, rookKey = null, rookRow = null;
-            for (let r = fr + step; r >= 0 && r < N; r += step) {
-              const key = r + ',' + fc;
-              const piece = boardState[key];
-              if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
-                rook = piece;
-                rookKey = key;
-                rookRow = r;
-                break;
-              }
-              if (piece) break;
-            }
-            if (rook) {
-              let clear = true;
-              for (let r = fr + step; r !== rookRow; r += step) {
-                if (boardState[r + ',' + fc]) { clear = false; break; }
-              }
-              if (clear) {
-                // Check intermediate and destination squares for attacks
-                let safe = true;
-                for (let r = fr + step; r !== tr + step; r += step) {
-                  for (const player of PLAYERS) {
-                    if (player.colour === kingColour) continue;
-                    if (isSquareAttacked(r, fc, player.colour, kingColour)) { safe = false; break; }
-                  }
-                  if (!safe) break;
-                }
-                if (safe) return true;
-              }
-            }
-          }
-          // Horizontal castling (South/North arms)
-          if (dr === 0 && absDc === 2) {
-            const step = dc > 0 ? 1 : -1;
-            let rook = null, rookKey = null, rookCol = null;
-            for (let c = fc + step; c >= 0 && c < N; c += step) {
-              const key = fr + ',' + c;
-              const piece = boardState[key];
-              if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
-                rook = piece;
-                rookKey = key;
-                rookCol = c;
-                break;
-              }
-              if (piece) break;
-            }
-            if (rook) {
-              let clear = true;
-              for (let c = fc + step; c !== rookCol; c += step) {
-                if (boardState[fr + ',' + c]) { clear = false; break; }
-              }
-              if (clear) {
-                // Check intermediate and destination squares for attacks
-                let safe = true;
-                for (let c = fc + step; c !== tc + step; c += step) {
-                  for (const player of PLAYERS) {
-                    if (player.colour === kingColour) continue;
-                    if (isSquareAttacked(fr, c, player.colour, kingColour)) { safe = false; break; }
-                  }
-                  if (!safe) break;
-                }
-                if (safe) return true;
-              }
-            }
-          }
-        }
+        // Castling: use shared helper (includes attack checks)
+        const castling = findCastlingRook(heldPiece, fr, fc, tr, tc);
+        if (castling) return true;
         return false;
       }
 
@@ -531,3 +461,73 @@
 // Canonical check functions — used by check.js, checkFlags.js, moves.js
 window.canPieceCapture = canPieceCapture;
 window.isSquareAttacked = isSquareAttacked;
+
+// Shared castling helper — returns { rook, rookKey, rookDestKey, rookDestSq } or null
+// kingPiece must have: colour, side, hasMoved
+window.findCastlingRook = function(kingPiece, fr, fc, tr, tc) {
+  const dr = tr - fr, dc = tc - fc;
+  const absDr = Math.abs(dr), absDc = Math.abs(dc);
+  if (!kingPiece || kingPiece.pieceType !== 'king' || kingPiece.hasMoved) return null;
+  if (!(absDr === 2 && dc === 0) && !(dr === 0 && absDc === 2)) return null;
+
+  const kingPos = { r: fr, c: fc };
+  if (isKingInCheck(kingPiece.side, kingPos)) return null;
+
+  const kingColour = kingPiece.colour;
+  const step = (absDr === 2) ? (dr > 0 ? 1 : -1) : (dc > 0 ? 1 : -1);
+  const vertical = (absDr === 2);
+
+  if (vertical) {
+    for (let r = fr + step; r >= 0 && r < N; r += step) {
+      const key = r + ',' + fc;
+      const piece = boardState[key];
+      if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
+        let clear = true;
+        for (let rr = fr + step; rr !== r; rr += step) {
+          if (boardState[rr + ',' + fc]) { clear = false; break; }
+        }
+        if (clear) {
+          // Attack checks
+          let safe = true;
+          for (let rr = fr + step; rr !== tr + step; rr += step) {
+            for (const player of PLAYERS) {
+              if (player.colour === kingColour) continue;
+              if (isSquareAttacked(rr, fc, player.colour, kingColour)) { safe = false; break; }
+            }
+            if (!safe) break;
+          }
+          if (!safe) return null;
+          const rookDestRow = tr - step;
+          return { rook: piece, rookKey: key, rookDestKey: rookDestRow + ',' + tc, rookDestSq: squareEl(rookDestRow, tc) };
+        }
+      }
+      if (piece) break;
+    }
+  } else {
+    for (let c = fc + step; c >= 0 && c < N; c += step) {
+      const key = fr + ',' + c;
+      const piece = boardState[key];
+      if (piece && piece.pieceType === 'rook' && piece.colour === kingColour && !piece.hasMoved) {
+        let clear = true;
+        for (let cc = fc + step; cc !== c; cc += step) {
+          if (boardState[fr + ',' + cc]) { clear = false; break; }
+        }
+        if (clear) {
+          let safe = true;
+          for (let cc = fc + step; cc !== tc + step; cc += step) {
+            for (const player of PLAYERS) {
+              if (player.colour === kingColour) continue;
+              if (isSquareAttacked(fr, cc, player.colour, kingColour)) { safe = false; break; }
+            }
+            if (!safe) break;
+          }
+          if (!safe) return null;
+          const rookDestCol = tc - step;
+          return { rook: piece, rookKey: key, rookDestKey: tr + ',' + rookDestCol, rookDestSq: squareEl(tr, rookDestCol) };
+        }
+      }
+      if (piece) break;
+    }
+  }
+  return null;
+};

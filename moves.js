@@ -203,86 +203,12 @@
       heldPiece.el.style.height = '';
       toSq.appendChild(heldPiece.el);
 
-      // CASTLING: detect if this move is a castling (king 2 squares toward unmoved rook)
-      // Only execute if the actual destination matches a valid castling destination.
-      let isCastling = false;
-      let castlingRook = null, castlingRookKey = null, castlingStep = 0, castlingVertical = false;
-      if (heldPiece.pieceType === 'king' && !heldPiece.hasMoved) {
-        const fr = +selectedSquare.dataset.row, fc = +selectedSquare.dataset.col;
-        const dr = tr - fr, dc = tc - fc;
-        const absDr = Math.abs(dr), absDc = Math.abs(dc);
-
-        // Vertical castling (West/East arms): king moves 2 squares vertically
-        if (absDr === 2 && dc === 0) {
-          const step = dr > 0 ? 1 : -1;
-          // Search for unmoved rook in that direction
-          for (let r = fr + step; r >= 0 && r < N; r += step) {
-            const key = r + ',' + fc;
-            const piece = boardState[key];
-            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
-              // Check path clear between king and rook
-              let clearPath = true;
-              for (let rr = fr + step; rr !== r; rr += step) {
-                if (boardState[rr + ',' + fc]) { clearPath = false; break; }
-              }
-              if (clearPath) {
-                isCastling = true;
-                castlingRook = piece;
-                castlingRookKey = key;
-                castlingStep = step;
-                castlingVertical = true;
-              }
-              break;
-            }
-            if (piece) break; // blocked
-          }
-        }
-        // Horizontal castling (South/North arms): king moves 2 squares horizontally
-        if (dr === 0 && absDc === 2) {
-          const step = dc > 0 ? 1 : -1;
-          for (let c = fc + step; c >= 0 && c < N; c += step) {
-            const key = fr + ',' + c;
-            const piece = boardState[key];
-            if (piece && piece.pieceType === 'rook' && piece.colour === heldPiece.colour && !piece.hasMoved) {
-              let clearPath = true;
-              for (let cc = fc + step; cc !== c; cc += step) {
-                if (boardState[fr + ',' + cc]) { clearPath = false; break; }
-              }
-              if (clearPath) {
-                isCastling = true;
-                castlingRook = piece;
-                castlingRookKey = key;
-                castlingStep = step;
-                castlingVertical = false;
-              }
-              break;
-            }
-            if (piece) break;
-          }
-        }
-      }
-
-      if (isCastling) {
-        const rook = castlingRook;
-        const rookKey = castlingRookKey;
-        const step = castlingStep;
-        const vertical = castlingVertical;
-        let rookDestKey, rookDestSq;
-        if (vertical) {
-          // Vertical castling: rook moves to square next to king (inside)
-          const rookDestRow = tr - castlingStep;
-          rookDestKey = rookDestRow + ',' + tc;
-          rookDestSq = squareEl(rookDestRow, tc);
-        } else {
-          // Horizontal castling
-          const rookDestCol = tc - castlingStep;
-          rookDestKey = tr + ',' + rookDestCol;
-          rookDestSq = squareEl(tr, rookDestCol);
-        }
-        // Move rook DOM element
+      // CASTLING: use shared helper (validation already passed in isLegalDestination)
+      const castling = findCastlingRook(heldPiece, +selectedSquare.dataset.row, +selectedSquare.dataset.col, tr, tc);
+      if (castling) {
+        const { rook, rookKey, rookDestKey, rookDestSq } = castling;
         rookDestSq.appendChild(rook.el);
-        // Update boardState
-        delete boardState[castlingRookKey];
+        delete boardState[rookKey];
         rook.hasMoved = true;
         boardState[rookDestKey] = rook;
       }

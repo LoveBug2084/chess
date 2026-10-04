@@ -98,6 +98,7 @@
     // Check if a piece of given colour on (fr,fc) can capture (tr,tc)
     // Uses the same movement logic as isLegalDestination but without UI state
     function canPieceCapture(piece, fr, fc, tr, tc, targetColour) {
+      if (fr === tr && fc === tc) return false; // cannot capture own square
       if (!isBoard(tr, tc)) return false;
       if (piece.colour === targetColour) return false; // friendly
 
@@ -526,3 +527,7 @@
       // No known piece type: free move (any distance / direction) for now.
       return true;
     }
+
+// Canonical check functions — used by check.js, checkFlags.js, moves.js
+window.canPieceCapture = canPieceCapture;
+window.isSquareAttacked = isSquareAttacked;

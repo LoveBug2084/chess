@@ -226,16 +226,15 @@
       // 1. Build attackerMap: "r,c" -> [kingColour1, kingColour2, ...]
       // Maps each attacking piece's square to the king colours it's attacking.
       const attackerMap = new Map();
+      // Track squares that have kings in check (to avoid creating attacker rings on king squares)
+      const kingSquaresInCheck = new Set();
       for (const key in boardState) {
         const king = boardState[key];
         if (king && king.pieceType === 'king' && king.checkFlags?.length) {
           const kingColour = COLOUR_HEX[king.colour];
           const [kr, kc] = key.split(',').map(Number);
-          const kingSq = squareEl(kr, kc);
-          // Skip kings that are already in-check - they already have a king ring
-          if (kingSq && kingSq.classList.contains('in-check')) {
-            continue;
-          }
+          // Track king squares that are in check - we won't create attacker rings on these
+          kingSquaresInCheck.add(`${kr},${kc}`);
           for (const flag of king.checkFlags) {
             const posKey = `${flag.attackerR},${flag.attackerC}`;
             if (!attackerMap.has(posKey)) attackerMap.set(posKey, []);
@@ -270,6 +269,8 @@
           }).join(', ');
 
           console.log(`[DEBUG refreshCheckMarkers] King ${piece.side} ring segments: ${segments}`);
+          const hadInCheck = kingSq.classList.contains('in-check');
+          console.log(`[DEBUG refreshCheckMarkers] Adding in-check to ${piece.side} king at ${r},${c} (had in-check: ${hadInCheck})`);
           kingSq.style.setProperty('--check-king-gradient', `conic-gradient(${segments})`);
           kingSq.classList.add('in-check');
         }
@@ -277,6 +278,10 @@
 
       // 3. Render attacker rings (show king colours - which kings are being attacked)
       for (const [posKey, kingColors] of attackerMap) {
+        // Skip attacker rings on squares that have kings in check
+        if (kingSquaresInCheck.has(posKey)) {
+          continue;
+        }
         const [r, c] = posKey.split(',').map(Number);
         const sq = squareEl(r, c);
         if (!sq) continue;
@@ -303,9 +308,16 @@
     function clearCheckVisuals() {
       board.querySelectorAll('.square.in-check, .square.checking')
         .forEach(s => {
+          const hadInCheck = s.classList.contains('in-check');
+          const hadChecking = s.classList.contains('checking');
+          if (hadInCheck || hadChecking) {
+            console.log(`[DEBUG clearCheckVisuals] Removing classes from ${s.dataset.row},${s.dataset.col}: in-check=${hadInCheck}, checking=${hadChecking}`);
+          }
           s.classList.remove('in-check', 'checking');
           s.style.removeProperty('--check-color');
           s.style.removeProperty('--check-ring-gradient');
+          s.style.removeProperty('--check-king-gradient');
+          s.style.removeProperty('--check-attacker-gradient');
         });
     }
 

@@ -34,9 +34,11 @@ function getAttackers(tr, tc, byColour, targetColour) {
     if (!piece || piece.colour !== byColour) continue;
     const [fr, fc] = key.split(',').map(Number);
     if (canPieceCapture(piece, fr, fc, tr, tc, targetColour)) {
+      console.log(`[DEBUG getAttackers] Attacker found: ${piece.pieceType} at ${fr},${fc} (colour: ${byColour}) attacks ${tr},${tc} (target: ${targetColour})`);
       attackers.push({ piece, r: fr, c: fc, colour: byColour });
     }
   }
+  console.log(`[DEBUG getAttackers] Target ${tr},${tc} (colour: ${targetColour}) attacked by ${attackers.length} pieces from ${byColour}:`, attackers.map(a => `${a.piece.pieceType}@${a.r},${a.c}`).join(', '));
   return attackers;
 }
 

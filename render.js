@@ -230,6 +230,12 @@
         const king = boardState[key];
         if (king && king.pieceType === 'king' && king.checkFlags?.length) {
           const kingColour = COLOUR_HEX[king.colour];
+          const [kr, kc] = key.split(',').map(Number);
+          const kingSq = squareEl(kr, kc);
+          // Skip kings that are already in-check - they already have a king ring
+          if (kingSq && kingSq.classList.contains('in-check')) {
+            continue;
+          }
           for (const flag of king.checkFlags) {
             const posKey = `${flag.attackerR},${flag.attackerC}`;
             if (!attackerMap.has(posKey)) attackerMap.set(posKey, []);
@@ -241,6 +247,8 @@
         }
       }
 
+      console.log('[DEBUG refreshCheckMarkers] attackerMap built:', [...attackerMap.entries()].map(([pos, colors]) => `${pos}: ${colors.join(', ')}`).join('; '));
+
       // 2. Render king rings (show attacker colours - which players are checking)
       for (const key in boardState) {
         const piece = boardState[key];
@@ -250,6 +258,9 @@
           if (!kingSq) continue;
 
           const flags = piece.checkFlags;
+          console.log(`[DEBUG refreshCheckMarkers] King ${piece.side} at ${r},${c} has ${flags.length} checkFlags:`, flags.map(f => `${f.attackerR},${f.attackerC} (${f.attackerColour})`).join(', '));
+
+          // Each flag gets its own segment (no color merging)
           const n = flags.length;
           const segments = flags.map((f, i) => {
             const start = (360 / n) * i;
@@ -258,7 +269,8 @@
             return `${color} ${start}deg, ${color} ${end}deg`;
           }).join(', ');
 
-          kingSq.style.setProperty('--check-ring-gradient', `conic-gradient(${segments})`);
+          console.log(`[DEBUG refreshCheckMarkers] King ${piece.side} ring segments: ${segments}`);
+          kingSq.style.setProperty('--check-king-gradient', `conic-gradient(${segments})`);
           kingSq.classList.add('in-check');
         }
       }
@@ -276,7 +288,8 @@
           return `${color} ${start}deg, ${color} ${end}deg`;
         }).join(', ');
 
-        sq.style.setProperty('--check-ring-gradient', `conic-gradient(${segments})`);
+        console.log(`[DEBUG refreshCheckMarkers] Attacker at ${posKey} ring segments: ${segments}`);
+        sq.style.setProperty('--check-attacker-gradient', `conic-gradient(${segments})`);
         sq.classList.add('checking');
       }
     }

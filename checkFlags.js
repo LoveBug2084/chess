@@ -9,10 +9,12 @@
 // Add a check flag to a king's flag array, avoiding duplicates.
 function addCheckFlag(king, attackerR, attackerC, attackerColour) {
   if (!king || !Array.isArray(king.checkFlags)) return;
-  const already = king.checkFlags.some(
+  const existing = king.checkFlags.find(
     f => f.attackerR === attackerR && f.attackerC === attackerC
   );
-  if (!already) {
+  if (existing) {
+    existing.attackerColour = attackerColour; // refresh stale colour
+  } else {
     king.checkFlags.push({ attackerR, attackerC, attackerColour });
   }
 }
@@ -53,6 +55,8 @@ function updateCheckFlags() {
       currentAttackers.push(...attackers);
     }
 
+    console.log(`[DEBUG updateCheckFlags] King ${piece.side} (${piece.colour}) at ${kr},${kc}: ${currentAttackers.length} attackers found:`, currentAttackers.map(a => `${a.piece.pieceType}@${a.r},${a.c} (${a.colour})`).join(', '));
+
     // Diff: compute flags to add/remove
     const existing = piece.checkFlags || [];
     const existingKeys = new Set(existing.map(f => `${f.attackerR},${f.attackerC}`));
@@ -61,6 +65,7 @@ function updateCheckFlags() {
     // Remove flags for attackers no longer checking
     for (const flag of existing) {
       if (!currentKeys.has(`${flag.attackerR},${flag.attackerC}`)) {
+        console.log(`[DEBUG updateCheckFlags] Removing flag for attacker at ${flag.attackerR},${flag.attackerC} (colour: ${flag.attackerColour})`);
         removeCheckFlag(piece, flag.attackerR, flag.attackerC);
       }
     }
@@ -68,9 +73,12 @@ function updateCheckFlags() {
     // Add flags for new attackers
     for (const attacker of currentAttackers) {
       if (!existingKeys.has(`${attacker.r},${attacker.c}`)) {
+        console.log(`[DEBUG updateCheckFlags] Adding flag for attacker ${attacker.piece.pieceType} at ${attacker.r},${attacker.c} (${attacker.colour})`);
         addCheckFlag(piece, attacker.r, attacker.c, attacker.colour);
       }
     }
+
+    console.log(`[DEBUG updateCheckFlags] King ${piece.side} final checkFlags:`, piece.checkFlags.map(f => `${f.attackerR},${f.attackerC} (${f.attackerColour})`).join(', '));
   }
 }
 

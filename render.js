@@ -191,12 +191,22 @@
           if (sq) {
             sq.classList.add('ep-flagged');
             const flags = p.enPassantFlags;
-            const segments = flags.map((f, i) => {
-              const start = (360 / flags.length) * i;
-              const end = (360 / flags.length) * (i + 1);
-              const color = COLOUR_HEX[f.creatorColour];
-              return `${color} ${start}deg, ${color} ${end}deg`;
-            }).join(', ');
+            const isMover = flags[0].creatorColour === p.colour;
+
+            let segments;
+            if (isMover) {
+              segments = flags.map((f, i) => {
+                const partner = boardState[`${f.r},${f.c}`];
+                const color = partner ? COLOUR_HEX[partner.colour] : COLOUR_HEX[f.creatorColour];
+                const start = (360 / flags.length) * i;
+                const end = (360 / flags.length) * (i + 1);
+                return `${color} ${start}deg, ${color} ${end}deg`;
+              }).join(', ');
+            } else {
+              const partner = boardState[`${flags[0].r},${flags[0].c}`];
+              const color = partner ? COLOUR_HEX[partner.colour] : COLOUR_HEX[flags[0].creatorColour];
+              segments = `${color} 0deg, ${color} 360deg`;
+            }
             sq.style.setProperty('--ep-ring-gradient', `conic-gradient(${segments})`);
           }
         }

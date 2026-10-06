@@ -233,9 +233,6 @@
     // Returns true if the move is illegal (leaves king in check)
     // movingPiece is the piece in hand (already removed from boardState)
     function wouldLeaveKingInCheck(fr, fc, tr, tc, movingPiece) {
-      // Only relevant if currently in check (optimization)
-      if (!isKingInCheck(movingPiece.side)) return false;
-
       const boardCopy = { ...boardState };
       const captured = boardCopy[tr + ',' + tc];
 
@@ -248,18 +245,26 @@
 
       // Handle en passant: if capturing en passant, also remove captured pawn
       // from its square (the partner square, not the destination)
-      // Note: this is a simplified check - full en passant logic is in evaluatePawnMove
-      // For simulation purposes, we check if this looks like an en passant capture
       if (movingPiece.pieceType === 'pawn') {
         const dr = tr - fr, dc = tc - fc;
         const isDiagonal = (Math.abs(dr) === 1 && Math.abs(dc) === 1);
         if (isDiagonal && !captured) {
-          // This could be en passant - check if there's a pawn on the skipped square's partner
-          // The actual en passant logic is complex; for safety, we'll do a full board scan
-          // and let isKingInCheck handle it. The captured pawn would be removed by the real move.
-          // Since we can't easily determine the partner square here, we'll rely on the fact
-          // that if it's a real en passant, the captured pawn is not on the destination.
-          // This is a limitation but acceptable for the check simulation.
+          // This could be en passant - check if the pawn has a flag for this capture
+          if (Array.isArray(movingPiece.enPassantFlags)) {
+            const flag = movingPiece.enPassantFlags.find(
+              f => f.skippedR === tr && f.skippedC === tc
+            );
+            if (flag) {
+              console.log(`[DEBUG wouldLeaveKingInCheck] EN PASSANT detected: moving pawn at ${fr},${fc} captures at ${tr},${tc}, removing captured pawn at ${flag.skippedR},${flag.skippedC} (attacker: ${movingPiece.colour})`);
+              // This is an en passant capture - remove the captured pawn from
+              // its actual square (the skipped square, not the destination)
+              delete boardCopy[flag.skippedR + ',' + flag.skippedC];
+            } else {
+              console.log(`[DEBUG wouldLeaveKingInCheck] Diagonal move to empty square but NO en passant flag found for pawn at ${fr},${fc} to ${tr},${tc}`);
+            }
+          } else {
+            console.log(`[DEBUG wouldLeaveKingInCheck] Diagonal move to empty square but NO enPassantFlags array on pawn at ${fr},${fc}`);
+          }
         }
       }
 

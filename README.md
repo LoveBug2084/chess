@@ -244,6 +244,7 @@ piece counts are correct from the start.
 | `?enpassant`        | A minimal four-pawn position that sets up an en-passant pairing in one move.   |
 | `?castle`           | Every player's king and both rooks on their back rank, all unmoved.            |
 | `?check`            | South king at G-1 with North queen at G-8 delivering direct check.             |
+| `?checkmate`        | South king at centre (7,7) surrounded by 4 North queens at distance 2 (N/E/S/W), all adjacent squares attacked — checkmate. |
 
 To reset, reload the page (with or without the parameter). Normal play is
 unaffected when no parameter is present.
@@ -652,6 +653,15 @@ square (king square → queen), in the pawn's own colour.
 
 ---
 
+### Current version (checkmate detection fix)
+
+- **Fixed checkmate detection in free mode:** `hasLegalMoves()` in `pieceRules.js` was using free mode rules (allowing any move to empty squares) instead of play mode rules when checking for legal moves during status evaluation. This caused the king to appear to have legal escape moves when it didn't. Fixed by temporarily disabling `freeMode` during `hasLegalMoves()` execution.
+- **Fixed self-blocking attack detection:** `hasLegalMoves()` was testing piece moves while the piece remained on `boardState`, causing sliding pieces (queen, rook, bishop) to incorrectly block their own lines of attack on escape squares. Fixed by temporarily removing the piece from `boardState` before testing its moves, then restoring it.
+- **Added `?checkmate` debug mode:** South king at centre (7,7) with 4 North queens at distance 2 (N/E/S/W) — all 8 adjacent squares attacked, demonstrating checkmate detection.
+- **Added debug logging:** `[DEBUG HASMOVES]` and `[DEBUG STATUS]` output to trace checkmate/stalemate evaluation.
+
+---
+
 ## Running
 
 1. Place `sprites.png` in an `img/` folder next to the HTML file.
@@ -660,3 +670,4 @@ square (king square → queen), in the pawn's own colour.
 4. To test en passant, append the url with ?enpassant
 5. To test castling, append the url with ?castle
 6. To test check detection, append the url with ?check
+7. To test checkmate detection, append the url with ?checkmate

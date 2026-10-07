@@ -19,6 +19,8 @@ if (params.has('enpassant')) {
   loadCastleTest();
 } else if (params.has('check')) {
   loadCheckTest();
+} else if (params.has('checkmate')) {
+  loadCheckmateTest();
 } else {
   setupNormalBoard();
 }

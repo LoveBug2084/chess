@@ -272,17 +272,24 @@
       return isKingInCheck(movingPiece.side, null, boardCopy);
     }
 
-    // Check if a player has any legal moves
+// Check if a player has any legal moves
     function hasLegalMoves(side) {
       const playerColour = PLAYERS.find(p => p.key === side).colour;
       const savedHeldPiece = heldPiece;
+      const savedFreeMode = freeMode;
+      
+      // Status check should use play mode rules, not free mode
+      freeMode = false;
       
       for (const key in boardState) {
         const piece = boardState[key];
         if (!piece || piece.colour !== playerColour) continue;
         
         const [fr, fc] = key.split(',').map(Number);
-        heldPiece = piece; // Simulate picking up this piece
+        
+        // Remove piece from boardState so it doesn't block attacks
+        delete boardState[key];
+        heldPiece = piece;
         
         for (let tr = 0; tr < N; tr++) {
           for (let tc = 0; tc < N; tc++) {
@@ -290,14 +297,21 @@
             const fromSq = { dataset: { row: fr, col: fc } };
             const toSq = { dataset: { row: tr, col: tc } };
             if (isLegalDestination(fromSq, toSq)) {
+              boardState[key] = piece; // Restore
               heldPiece = savedHeldPiece;
+              freeMode = savedFreeMode;
+              console.log(`[DEBUG HASMOVES] ${side}: true (${piece.pieceType} ${fr},${fc}→${tr},${tc})`);
               return true;
             }
           }
         }
+        
+        boardState[key] = piece; // Restore
         heldPiece = savedHeldPiece;
       }
       heldPiece = savedHeldPiece;
+      freeMode = savedFreeMode;
+      console.log(`[DEBUG HASMOVES] ${side}: false`);
       return false;
     }
 
@@ -307,10 +321,9 @@
       if (cnt === 0) return '';
       const inCheck = isKingInCheck(side);
       const hasMoves = hasLegalMoves(side);
-      if (inCheck && !hasMoves) return 'Checkmate';
-      if (!inCheck && !hasMoves) return 'Stalemate';
-      if (inCheck) return 'Check';
-      return '';
+      const status = inCheck && !hasMoves ? 'Checkmate' : !inCheck && !hasMoves ? 'Stalemate' : inCheck ? 'Check' : '';
+      console.log(`[DEBUG STATUS] ${side}: inCheck=${inCheck} hasMoves=${hasMoves} → ${status}`);
+      return status;
     }
 
     // Evaluate a pawn move. Returns { legal, capture, enPassant }.

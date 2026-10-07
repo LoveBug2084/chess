@@ -4,6 +4,8 @@
     let removedCheckFlags = null;  // { kingSide, flags[] } stored during drag
 
     function pickUp(sq, piece, e) {
+      const fr = +sq.dataset.row, fc = +sq.dataset.col;
+      console.log(`[DEBUG] PICKUP ${piece.pieceType} ${piece.colour} ${fr},${fc}`);
       if (piece.pieceType === 'king') {
         clearCheckVisuals();
         clearCheckFlags(piece);
@@ -33,6 +35,9 @@
         
         if (removed.length) {
           removedCheckFlags = removed;
+          for (const r of removed) {
+            console.log(`[DEBUG] PICKUP-CHECKER removed from ${r.kingSide} king`);
+          }
           refreshCheckMarkers();
         }
       }
@@ -80,6 +85,8 @@
 
     function cancelMove() {
       if (!heldPiece || !selectedSquare) return;
+      const fr = +selectedSquare.dataset.row, fc = +selectedSquare.dataset.col;
+      console.log(`[DEBUG] CANCEL ${heldPiece.pieceType} ${heldPiece.colour} ${fr},${fc}`);
       removeGhost();
       window.removeEventListener('mousemove', onMouseMove);
       removeHeldFromBoard();
@@ -163,10 +170,11 @@
 
     function dropOn(toSq) {
       if (!heldPiece || !selectedSquare) return;
-      removeGhost();
       const tr = +toSq.dataset.row, tc = +toSq.dataset.col;
-      const toKey = tr + ',' + tc;
       const fr = +selectedSquare.dataset.row, fc = +selectedSquare.dataset.col;
+      console.log(`[DEBUG] DROP ${heldPiece.pieceType} ${heldPiece.colour} ${fr},${fc}→${tr},${tc} ${freeMode ? 'free' : 'play'}`);
+      removeGhost();
+      const toKey = tr + ',' + tc;
 
       // Work out the nature of this move from GEOMETRY, before mutating
       // any state. This avoids depending on a re-evaluation of the move.
@@ -329,8 +337,10 @@ clearHighlights();
         }
         refreshEnPassantMarkers();
         updateCheckFlags();
+        console.log(`[DEBUG] DROP-UPDATE check flags updated`);
         refreshCheckMarkers();
         updatePieceCountDisplay();
+        console.log(`[DEBUG] DROP-DISPLAY status updated`);
       }
     }
 

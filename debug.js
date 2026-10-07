@@ -195,6 +195,50 @@ function loadCheckTest() {
   updatePieceCountDisplay();
 }
 
+/* ------------------------------------------------------------------ *
+ *  CHECKMATE TEST — king surrounded by 4 queens at distance 2 (orthogonal)
+ *
+ *  South king at (7,7) center, 4 North queens at N/E/S/W distance 2.
+ *  All 8 adjacent squares attacked → checkmate.
+ *
+ *  Usage:
+ *    1. Open index.html?checkmate
+ *    2. South king should show Checkmate status
+ * ------------------------------------------------------------------ */
+function loadCheckmateTest() {
+  for (const key in boardState) {
+    const p = boardState[key];
+    if (p && p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    delete boardState[key];
+  }
+  for (const player of PLAYERS) pieceCounts[player.colour] = 0;
+
+  const colSouth = PLAYERS[0].colour;
+  const colNorth = PLAYERS[2].colour;
+
+  // South king at center (7,7)
+  placePiece(7, 7, 'king', colSouth, 'south');
+  boardState['7,7'].hasMoved = false;
+
+  // 4 North queens at distance 2 in orthogonal directions (N, E, S, W)
+  const queenPositions = [
+    [5, 7],  // N
+    [7, 9],  // E
+    [9, 7],  // S
+    [7, 5]   // W
+  ];
+
+  for (const [r, c] of queenPositions) {
+    placePiece(r, c, 'queen', colNorth, 'north');
+    boardState[`${r},${c}`].hasMoved = false;
+  }
+
+  turnIndex = 0;
+  renderTurn();
+  updatePieceCountDisplay();
+}
+
 window.loadEnPassantTest = loadEnPassantTest;
 window.loadCastleTest = loadCastleTest;
 window.loadCheckTest = loadCheckTest;
+window.loadCheckmateTest = loadCheckmateTest;

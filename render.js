@@ -43,6 +43,20 @@
       }
     }
 
+    function setGameOverState() {
+      const modePill = document.getElementById('modePill');
+      const modeText = document.getElementById('modeText');
+      const turnPill = document.getElementById('turnPill');
+      const turnText = document.getElementById('turnText');
+      modePill.className = 'mode-toggle play';
+      modeText.textContent = 'Play';
+      turnPill.style.display = 'inline-flex';
+      turnPill.style.background = '#666';
+      turnPill.style.color = '#fff';
+      turnText.textContent = 'Wow !';
+      updatePieceCountDisplay();
+    }
+
     function nextTurn() {
       // Advance to the next player who still has pieces and is not checkmated/stalemated.
       // Checkmate and stalemate are evaluated each turn (not permanent).
@@ -69,6 +83,9 @@
         updatePieceCountDisplay(); // Status updated BEFORE player moves
         return;
       } while (attempts < maxAttempts);
+
+      // All players eliminated - game over state
+      setGameOverState();
     }
 
     /* ------------------------------------------------------------------ *

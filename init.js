@@ -43,7 +43,18 @@ if (window.ResizeObserver) {
 document.getElementById('modePill').addEventListener('click', () => {
   freeMode = !freeMode;
   window.freeMode = freeMode;
-  renderTurn();
+  if (!freeMode) {
+    // Entering play mode: validate current player
+    const currentPlayer = PLAYERS[turnIndex];
+    const cnt = pieceCounts[currentPlayer.colour] || 0;
+    if (cnt === 0) {
+      nextTurn();  // Skip eliminated player (handles all-zero via fallback)
+    } else {
+      renderTurn();  // Keep current player
+    }
+  } else {
+    renderTurn();  // Free mode: just update display
+  }
 });
 
 // Suppress context menu in both modes
